@@ -1,4 +1,5 @@
 #[macro_use]
+#[cfg(test)]
 extern crate counted_array;
 extern crate phf;
 
