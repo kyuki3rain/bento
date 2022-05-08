@@ -1,17 +1,10 @@
 use super::token;
 
 pub struct Lexer {
-    input: String,
+    pub input: String,
     position: usize,
     read_position: usize,
     ch: char,
-}
-
-pub fn new_token(token_type: token::TokenType, literal: String) -> token::Token {
-    return token::Token {
-        token_type,
-        literal: literal,
-    };
 }
 
 #[allow(dead_code)]
@@ -45,35 +38,35 @@ impl Lexer {
                 if self.peek_char() == '=' {
                     let ch = self.ch;
                     self.read_char();
-                    new_token(token::TokenType::EQ, ch.to_string() + &self.ch.to_string())
+                    token::new_token(token::TokenType::EQ, ch.to_string() + &self.ch.to_string())
                 } else {
-                    new_token(token::TokenType::ASSIGN, self.ch.to_string())
+                    token::new_token(token::TokenType::ASSIGN, self.ch.to_string())
                 }
             }
-            '+' => new_token(token::TokenType::PLUS, self.ch.to_string()),
-            '-' => new_token(token::TokenType::MINUS, self.ch.to_string()),
+            '+' => token::new_token(token::TokenType::PLUS, self.ch.to_string()),
+            '-' => token::new_token(token::TokenType::MINUS, self.ch.to_string()),
             '!' => {
                 if self.peek_char() == '=' {
                     let ch = self.ch;
                     self.read_char();
-                    new_token(
+                    token::new_token(
                         token::TokenType::NOTEQ,
                         ch.to_string() + &self.ch.to_string(),
                     )
                 } else {
-                    new_token(token::TokenType::BANG, self.ch.to_string())
+                    token::new_token(token::TokenType::BANG, self.ch.to_string())
                 }
             }
-            '*' => new_token(token::TokenType::ASTERISK, self.ch.to_string()),
-            '/' => new_token(token::TokenType::SLASH, self.ch.to_string()),
-            '<' => new_token(token::TokenType::LT, self.ch.to_string()),
-            '>' => new_token(token::TokenType::GT, self.ch.to_string()),
-            ',' => new_token(token::TokenType::COMMA, self.ch.to_string()),
-            ';' => new_token(token::TokenType::SEMICOLON, self.ch.to_string()),
-            '(' => new_token(token::TokenType::LPAREN, self.ch.to_string()),
-            ')' => new_token(token::TokenType::RPAREN, self.ch.to_string()),
-            '{' => new_token(token::TokenType::LBRACE, self.ch.to_string()),
-            '}' => new_token(token::TokenType::RBRACE, self.ch.to_string()),
+            '*' => token::new_token(token::TokenType::ASTERISK, self.ch.to_string()),
+            '/' => token::new_token(token::TokenType::SLASH, self.ch.to_string()),
+            '<' => token::new_token(token::TokenType::LT, self.ch.to_string()),
+            '>' => token::new_token(token::TokenType::GT, self.ch.to_string()),
+            ',' => token::new_token(token::TokenType::COMMA, self.ch.to_string()),
+            ';' => token::new_token(token::TokenType::SEMICOLON, self.ch.to_string()),
+            '(' => token::new_token(token::TokenType::LPAREN, self.ch.to_string()),
+            ')' => token::new_token(token::TokenType::RPAREN, self.ch.to_string()),
+            '{' => token::new_token(token::TokenType::LBRACE, self.ch.to_string()),
+            '}' => token::new_token(token::TokenType::RBRACE, self.ch.to_string()),
             '\0' => token::Token {
                 token_type: token::TokenType::EOF,
                 literal: String::from(""),
@@ -83,11 +76,11 @@ impl Lexer {
                     let literal = self.read_identifier();
                     let token_type = token::lookup_ident(&literal);
 
-                    return new_token(token_type, literal);
+                    return token::new_token(token_type, literal);
                 } else if self.ch.is_numeric() {
-                    return new_token(token::TokenType::INT, self.read_number());
+                    return token::new_token(token::TokenType::INT, self.read_number());
                 } else {
-                    new_token(token::TokenType::ILLEGAL, self.ch.to_string())
+                    token::new_token(token::TokenType::ILLEGAL, self.ch.to_string())
                 }
             }
         };
@@ -114,10 +107,14 @@ impl Lexer {
         return self.get_slice(position, self.position);
     }
 
-    fn get_slice(&mut self, start: usize, end: usize) -> String {
+    fn get_slice(&self, start: usize, end: usize) -> String {
         let begin = self.input.char_indices().nth(start).unwrap().0;
-        let end = self.input.char_indices().nth(end).unwrap().0;
-        let str2 = &self.input[begin..end];
+        if let Some(end) = self.input.char_indices().nth(end) {
+            let str2 = &self.input[begin..end.0];
+            return String::from(str2);
+        }
+
+        let str2 = &self.input[begin..];
         return String::from(str2);
     }
 

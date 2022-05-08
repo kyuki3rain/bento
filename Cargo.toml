@@ -7,4 +7,3 @@ edition = "2021"
 
 [dependencies]
 counted-array = "0.1.2"
-phf = { version = "0.10.1", features = ["macros"] }

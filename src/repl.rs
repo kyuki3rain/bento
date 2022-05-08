@@ -1,4 +1,4 @@
-use super::{lexer, token};
+use super::{lexer, parser, token};
 use std::io::{stdin, stdout, Write};
 
 pub fn start() {
@@ -10,12 +10,17 @@ pub fn start() {
             .read_line(&mut s)
             .expect("Did not enter a correct string");
         let mut l = lexer::Lexer::new(s);
-        loop {
-            let tok = l.next_token();
-            if tok.token_type == token::TokenType::EOF {
-                break;
+        let mut p = parser::Parser::new(l);
+
+        let program = p.parse_program();
+        if p.errors.len() != 0 {
+            println!("parser errors:");
+            for err in p.errors {
+                println!("\t{}", err);
             }
-            println!("{}", tok);
+            continue;
         }
+
+        println!("{}", program);
     }
 }

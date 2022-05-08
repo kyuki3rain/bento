@@ -1,9 +1,10 @@
 #[macro_use]
 #[cfg(test)]
 extern crate counted_array;
-extern crate phf;
 
+mod ast;
 mod lexer;
+mod parser;
 mod repl;
 mod token;
 
