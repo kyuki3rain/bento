@@ -1,4 +1,4 @@
-use super::{lexer, parser, token};
+use super::{lexer, parser};
 use std::io::{stdin, stdout, Write};
 
 pub fn start() {
@@ -9,7 +9,7 @@ pub fn start() {
         stdin()
             .read_line(&mut s)
             .expect("Did not enter a correct string");
-        let mut l = lexer::Lexer::new(s);
+        let l = lexer::Lexer::new(s);
         let mut p = parser::Parser::new(l);
 
         let program = p.parse_program();
