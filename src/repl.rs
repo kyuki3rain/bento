@@ -1,7 +1,9 @@
-use super::{lexer, parser};
+use super::{environment, evaluator, lexer, parser};
 use std::io::{stdin, stdout, Write};
 
 pub fn start() {
+    let mut env = environment::Environment::new();
+
     loop {
         print!(">> ");
         let _ = stdout().flush();
@@ -21,6 +23,9 @@ pub fn start() {
             continue;
         }
 
-        println!("{}", program);
+        match evaluator::eval_program(program, &mut env) {
+            Some(evaluated) => println!("{}", evaluated.string()),
+            None => println!("cannot evaluate error!"),
+        }
     }
 }
