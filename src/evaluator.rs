@@ -1,4 +1,4 @@
-use super::{ast, environment, lexer, object, parser};
+use super::{ast, environment, object};
 
 pub fn eval_program(
     program: ast::Program,
@@ -272,7 +272,7 @@ fn eval_integer_infix_expression(
     operator: String,
     left_value: i64,
     right_value: i64,
-    env: &mut environment::Environment,
+    _: &mut environment::Environment,
 ) -> Option<object::Object> {
     match &*operator {
         "+" => return Some(object::Object::Integer(left_value + right_value)),
@@ -363,6 +363,7 @@ fn is_error(obj: &object::Object) -> bool {
 
 #[cfg(test)]
 mod evaluator_tests {
+    use super::super::{lexer, parser};
     use super::*;
 
     #[test]

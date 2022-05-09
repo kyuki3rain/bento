@@ -9,7 +9,7 @@ pub struct Environment {
 
 impl Environment {
     pub fn new() -> Environment {
-        let mut s = HashMap::new();
+        let s = HashMap::new();
         return Environment {
             store: s,
             outer: None,

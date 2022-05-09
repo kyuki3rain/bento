@@ -18,14 +18,14 @@ pub enum Object {
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Object::Integer(value) => return write!(f, "INTEGER"),
-            Object::Boolean(value) => return write!(f, "BOOLEAN"),
-            Object::Return(value) => return write!(f, "RETURN"),
-            Object::Error(value) => return write!(f, "ERROR"),
+            Object::Integer(_) => return write!(f, "INTEGER"),
+            Object::Boolean(_) => return write!(f, "BOOLEAN"),
+            Object::Return(_) => return write!(f, "RETURN"),
+            Object::Error(_) => return write!(f, "ERROR"),
             Object::Function {
-                parameters,
-                body,
-                env,
+                parameters: _,
+                body: _,
+                env: _,
             } => return write!(f, "FUNCTION"),
             Object::Null => return write!(f, "NULL"),
         }
@@ -42,7 +42,7 @@ impl Object {
             Object::Function {
                 parameters,
                 body,
-                env,
+                env: _,
             } => {
                 let mut s = "".to_string();
                 for (i, p) in parameters.iter().enumerate() {
