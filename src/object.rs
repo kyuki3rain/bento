@@ -59,3 +59,7 @@ impl Object {
         }
     }
 }
+
+pub const TRUE: Object = Object::Boolean(true);
+pub const FALSE: Object = Object::Boolean(false);
+pub const NULL: Object = Object::Null;

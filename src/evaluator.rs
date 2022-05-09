@@ -127,9 +127,7 @@ fn eval_expression(
             }
             None => return None,
         },
-        ast::Expression::Boolean { token: _, value } => {
-            return Some(object::Object::Boolean(value))
-        }
+        ast::Expression::Boolean { token: _, value } => return Some(eval_boolean(value)),
         ast::Expression::IfExpression {
             token: _,
             condition,
@@ -253,8 +251,8 @@ fn eval_infix_expression(
         },
         object::Object::Boolean(left_value) => match right {
             object::Object::Boolean(right_value) => match &*operator {
-                "==" => return Some(object::Object::Boolean(left_value == right_value)),
-                "!=" => return Some(object::Object::Boolean(left_value != right_value)),
+                "==" => return Some(eval_boolean(left_value == right_value)),
+                "!=" => return Some(eval_boolean(left_value != right_value)),
                 _ => {
                     return Some(object::Object::Error(format!(
                         "unknown operator: {} {} {}",
@@ -279,10 +277,10 @@ fn eval_integer_infix_expression(
         "-" => return Some(object::Object::Integer(left_value - right_value)),
         "*" => return Some(object::Object::Integer(left_value * right_value)),
         "/" => return Some(object::Object::Integer(left_value / right_value)),
-        "<" => return Some(object::Object::Boolean(left_value < right_value)),
-        ">" => return Some(object::Object::Boolean(left_value > right_value)),
-        "==" => return Some(object::Object::Boolean(left_value == right_value)),
-        "!=" => return Some(object::Object::Boolean(left_value != right_value)),
+        "<" => return Some(eval_boolean(left_value < right_value)),
+        ">" => return Some(eval_boolean(left_value > right_value)),
+        "==" => return Some(eval_boolean(left_value == right_value)),
+        "!=" => return Some(eval_boolean(left_value != right_value)),
         _ => {
             return Some(object::Object::Error(format!(
                 "unknown operator: {} {} {}",
@@ -294,9 +292,17 @@ fn eval_integer_infix_expression(
 
 fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
     match right {
-        object::Object::Boolean(value) => return Some(object::Object::Boolean(!value)),
-        object::Object::Null => return Some(object::Object::Boolean(true)),
-        _ => Some(object::Object::Boolean(false)),
+        object::Object::Boolean(value) => return Some(eval_boolean(!value)),
+        object::Object::Null => return Some(object::TRUE),
+        _ => Some(object::FALSE),
+    }
+}
+
+fn eval_boolean(value: bool) -> object::Object {
+    if value {
+        return object::TRUE;
+    } else {
+        return object::FALSE;
     }
 }
 
@@ -327,7 +333,7 @@ fn eval_if_expression(
         } else if let Some(alt) = alternative {
             return eval_statement(*alt, env);
         } else {
-            return Some(object::Object::Null);
+            return Some(object::NULL);
         }
     } else {
         return None;
