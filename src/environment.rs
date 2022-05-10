@@ -19,7 +19,7 @@ impl Environment {
     pub fn new_enclosed_environment(self) -> Environment {
         return Environment {
             store: HashMap::new(),
-            outer: Some(Box::new(self.clone())),
+            outer: Some(Box::new(self)),
         };
     }
 
