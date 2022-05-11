@@ -2,20 +2,20 @@ use super::{ast, environment};
 use std::fmt;
 
 #[derive(Clone)]
-pub enum Object {
+pub enum Object<'a> {
     Integer(i64),
     Boolean(bool),
-    Return(Box<Object>),
+    Return(Box<Object<'a>>),
     Error(String),
     Function {
         parameters: Vec<ast::Expression>,
         body: ast::Statement,
-        env: environment::Environment,
+        env: &'a environment::Environment<'a>,
     },
     Null,
 }
 
-impl fmt::Display for Object {
+impl<'a> fmt::Display for Object<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Object::Integer(_) => return write!(f, "INTEGER"),
@@ -32,7 +32,7 @@ impl fmt::Display for Object {
     }
 }
 
-impl Object {
+impl<'a> Object<'a> {
     pub fn string(&self) -> String {
         match self {
             Object::Integer(value) => return format!("{}", value),

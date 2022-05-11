@@ -1,9 +1,9 @@
 use super::{ast, environment, object};
 
-pub fn eval_program(
+pub fn eval_program<'a>(
     program: ast::Program,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Option<object::Object<'a>> {
     let mut result = None;
     for stmt in program.statements {
         result = eval_statement(stmt, env);
@@ -19,10 +19,10 @@ pub fn eval_program(
     return result;
 }
 
-fn eval_block_statement(
+fn eval_block_statement<'a>(
     statements: Vec<ast::Statement>,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Option<object::Object<'a>> {
     let mut result = None;
     for stmt in statements {
         result = eval_statement(stmt, env);
@@ -37,10 +37,10 @@ fn eval_block_statement(
     return result;
 }
 
-fn eval_statement(
+fn eval_statement<'a>(
     stmt: ast::Statement,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Option<object::Object<'a>> {
     match stmt {
         ast::Statement::LetStatement {
             token: _,
@@ -78,10 +78,10 @@ fn eval_statement(
     }
 }
 
-fn eval_expression(
+fn eval_expression<'a>(
     exp: ast::Expression,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Option<object::Object<'a>> {
     match exp {
         ast::Expression::Identifier { token: _, value } => return eval_identifier(value, env),
         ast::Expression::IntegerLiteral { token: _, value } => {
@@ -143,7 +143,7 @@ fn eval_expression(
         } => {
             return Some(object::Object::Function {
                 parameters,
-                env: env.clone(),
+                env: &env,
                 body: *body,
             })
         }
@@ -165,7 +165,10 @@ fn eval_expression(
     }
 }
 
-fn apply_function(func: object::Object, args: Vec<object::Object>) -> Option<object::Object> {
+fn apply_function<'a>(
+    func: object::Object<'a>,
+    args: Vec<object::Object<'a>>,
+) -> Option<object::Object<'a>> {
     match func {
         object::Object::Function {
             parameters,
@@ -198,10 +201,10 @@ fn apply_function(func: object::Object, args: Vec<object::Object>) -> Option<obj
     }
 }
 
-fn eval_expressions(
+fn eval_expressions<'a>(
     exps: Vec<ast::Expression>,
-    env: &mut environment::Environment,
-) -> Vec<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Vec<object::Object<'a>> {
     let mut result = Vec::new();
     for e in exps {
         if let Some(evaluated) = eval_expression(e, env) {
@@ -214,11 +217,11 @@ fn eval_expressions(
     return result;
 }
 
-fn eval_prefix_expression(
+fn eval_prefix_expression<'a>(
     operator: String,
-    right: object::Object,
+    right: object::Object<'a>,
     _: &mut environment::Environment,
-) -> Option<object::Object> {
+) -> Option<object::Object<'a>> {
     match &*operator {
         "!" => return eval_bang_operator_expression(right),
         "-" => return eval_minus_prefix_operator_expression(right),
@@ -231,12 +234,12 @@ fn eval_prefix_expression(
     }
 }
 
-fn eval_infix_expression(
+fn eval_infix_expression<'a>(
     operator: String,
-    left: object::Object,
-    right: object::Object,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    left: object::Object<'a>,
+    right: object::Object<'a>,
+    env: &'a mut environment::Environment,
+) -> Option<object::Object<'a>> {
     if format!("{}", left) != format!("{}", right) {
         return Some(object::Object::Error(format!(
             "type mismatch: {} {} {}",
@@ -268,12 +271,12 @@ fn eval_infix_expression(
     }
 }
 
-fn eval_integer_infix_expression(
+fn eval_integer_infix_expression<'a>(
     operator: String,
     left_value: i64,
     right_value: i64,
     _: &mut environment::Environment,
-) -> Option<object::Object> {
+) -> Option<object::Object<'a>> {
     match &*operator {
         "+" => return Some(object::Object::Integer(left_value + right_value)),
         "-" => return Some(object::Object::Integer(left_value - right_value)),
@@ -312,12 +315,12 @@ fn eval_minus_prefix_operator_expression(right: object::Object) -> Option<object
     }
 }
 
-fn eval_if_expression(
+fn eval_if_expression<'a>(
     condition: Box<ast::Expression>,
     consequence: Box<ast::Statement>,
     alternative: Option<Box<ast::Statement>>,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
+    env: &'a mut environment::Environment<'a>,
+) -> Option<object::Object<'a>> {
     if let Some(evaluated_condition) = eval_expression(*condition, env) {
         if is_error(&evaluated_condition) {
             return Some(evaluated_condition);
@@ -334,7 +337,10 @@ fn eval_if_expression(
     }
 }
 
-fn eval_identifier(ident: String, env: &mut environment::Environment) -> Option<object::Object> {
+fn eval_identifier<'a>(
+    ident: String,
+    env: &'a mut environment::Environment,
+) -> Option<object::Object<'a>> {
     match (*env).get(ident.clone()) {
         Some(value) => return Some(value),
         None => {
@@ -572,7 +578,7 @@ mod evaluator_tests {
         }
     }
 
-    fn test_eval(input: String) -> object::Object {
+    fn test_eval<'a>(input: String) -> object::Object<'a> {
         let mut env = environment::Environment::new();
         let l = lexer::Lexer::new(input);
         let mut p = parser::Parser::new(l);

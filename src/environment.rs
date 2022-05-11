@@ -1,14 +1,13 @@
 use super::object;
 use std::collections::HashMap;
 
-#[derive(Clone)]
-pub struct Environment {
-    store: HashMap<String, object::Object>,
-    outer: Option<Box<Environment>>,
+pub struct Environment<'a> {
+    store: HashMap<String, object::Object<'a>>,
+    outer: Option<Box<Environment<'a>>>,
 }
 
-impl Environment {
-    pub fn new() -> Environment {
+impl<'a> Environment<'a> {
+    pub fn new() -> Environment<'a> {
         let s = HashMap::new();
         return Environment {
             store: s,
@@ -16,10 +15,10 @@ impl Environment {
         };
     }
 
-    pub fn new_enclosed_environment(self) -> Environment {
+    pub fn new_enclosed_environment(self) -> Environment<'a> {
         return Environment {
             store: HashMap::new(),
-            outer: Some(Box::new(self.clone())),
+            outer: Some(Box::new(self)),
         };
     }
 
@@ -32,7 +31,7 @@ impl Environment {
             },
         }
     }
-    pub fn set(&mut self, name: String, val: &object::Object) {
+    pub fn set(&mut self, name: String, val: &object::Object<'a>) {
         self.store.insert(name, val.clone());
     }
 }
