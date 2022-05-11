@@ -3,20 +3,23 @@ use super::{ast, environment, object};
 pub fn eval_program<'a>(
     program: ast::Program,
     env: &'a mut environment::Environment<'a>,
-) -> Option<object::Object<'a>> {
+) -> (
+    Option<object::Object<'a>>,
+    &'a mut environment::Environment<'a>,
+) {
     let mut result = None;
     for stmt in program.statements {
         result = eval_statement(stmt, env);
 
         if let Some(r) = result {
             match r {
-                object::Object::Return(value) => return Some(*value),
-                object::Object::Error(value) => return Some(object::Object::Error(value)),
+                object::Object::Return(value) => return (Some(*value), env),
+                object::Object::Error(value) => return (Some(object::Object::Error(value)), env),
                 _ => result = Some(r),
             }
         }
     }
-    return result;
+    return (result, env);
 }
 
 fn eval_block_statement<'a>(

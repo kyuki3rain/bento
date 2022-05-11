@@ -2,9 +2,9 @@ use super::{environment, evaluator, lexer, parser};
 use std::io::{stdin, stdout, Write};
 
 pub fn start() {
-    let mut env = environment::Environment::new();
-
+    let mut prev_env = environment::Environment::new();
     loop {
+        let mut env = prev_env.clone();
         print!(">> ");
         let _ = stdout().flush();
         let mut s = String::new();
@@ -24,8 +24,8 @@ pub fn start() {
         }
 
         match evaluator::eval_program(program, &mut env) {
-            Some(evaluated) => println!("{}", evaluated.string()),
-            None => println!("cannot evaluate error!"),
+            (Some(evaluated), penv) => println!("{}", evaluated.string()),
+            (None, penv) => prev_env = *penv,
         }
     }
 }
