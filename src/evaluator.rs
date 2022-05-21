@@ -42,11 +42,7 @@ fn eval_statement(
     env: &mut environment::Environment,
 ) -> Option<object::Object> {
     match stmt {
-        ast::Statement::LetStatement {
-            token: _,
-            name,
-            value,
-        } => match eval_expression(value, env) {
+        ast::Statement::LetStatement { name, value } => match eval_expression(value, env) {
             Some(val) => {
                 if !is_error(&val) {
                     env.set(name.to_string(), &val);
@@ -55,26 +51,23 @@ fn eval_statement(
             }
             None => return None,
         },
-        ast::Statement::ReturnStatement {
-            token: _,
-            return_value,
-        } => match eval_expression(return_value, env) {
-            Some(value) => {
-                if is_error(&value) {
-                    return Some(value);
+        ast::Statement::ReturnStatement { return_value } => {
+            match eval_expression(return_value, env) {
+                Some(value) => {
+                    if is_error(&value) {
+                        return Some(value);
+                    }
+                    return Some(object::Object::Return(Box::new(value)));
                 }
-                return Some(object::Object::Return(Box::new(value)));
+                None => return None,
             }
-            None => return None,
-        },
-        ast::Statement::ExpressionStatement {
-            token: _,
-            expression,
-        } => return eval_expression(expression, env),
-        ast::Statement::BlockStatement {
-            token: _,
-            statements,
-        } => return eval_block_statement(statements, env),
+        }
+        ast::Statement::ExpressionStatement { expression } => {
+            return eval_expression(expression, env)
+        }
+        ast::Statement::BlockStatement { statements } => {
+            return eval_block_statement(statements, env)
+        }
     }
 }
 
@@ -83,15 +76,10 @@ fn eval_expression(
     env: &mut environment::Environment,
 ) -> Option<object::Object> {
     match exp {
-        ast::Expression::Identifier { token: _, value } => return eval_identifier(value, env),
-        ast::Expression::IntegerLiteral { token: _, value } => {
-            return Some(object::Object::Integer(value))
-        }
-        ast::Expression::PrefixExpression {
-            token: _,
-            operator,
-            right,
-        } => match eval_expression(*right, env) {
+        ast::Expression::Identifier { value } => return eval_identifier(value, env),
+        ast::Expression::IntegerLiteral { value } => return Some(object::Object::Integer(value)),
+        ast::Expression::PrefixExpression { operator, right } => match eval_expression(*right, env)
+        {
             Some(right_evaluated) => {
                 if is_error(&right_evaluated) {
                     return Some(right_evaluated);
@@ -101,7 +89,6 @@ fn eval_expression(
             None => return None,
         },
         ast::Expression::InfixExpression {
-            token: _,
             left,
             operator,
             right,
@@ -127,18 +114,13 @@ fn eval_expression(
             }
             None => return None,
         },
-        ast::Expression::Boolean { token: _, value } => return Some(eval_boolean(value)),
+        ast::Expression::Boolean { value } => return Some(eval_boolean(value)),
         ast::Expression::IfExpression {
-            token: _,
             condition,
             consequence,
             alternative,
         } => return eval_if_expression(condition, consequence, alternative, env),
-        ast::Expression::FunctionLiteral {
-            token: _,
-            parameters,
-            body,
-        } => {
+        ast::Expression::FunctionLiteral { parameters, body } => {
             return Some(object::Object::Function {
                 parameters,
                 env: env.clone(),
@@ -146,7 +128,6 @@ fn eval_expression(
             })
         }
         ast::Expression::CallExpression {
-            token: _,
             function,
             arguments,
         } => {
@@ -174,8 +155,8 @@ fn apply_function(func: object::Object, args: Vec<object::Object>) -> Option<obj
 
             for (i, p) in parameters.iter().enumerate() {
                 match p {
-                    ast::Expression::Identifier { token: _, value } => {
-                        extended_env.set(value.clone(), &args[i])
+                    ast::Expression::Identifier { value } => {
+                        extended_env.set((&value).to_string(), &args[i])
                     }
                     _ => return None,
                 }
@@ -341,7 +322,7 @@ fn eval_if_expression(
 }
 
 fn eval_identifier(ident: String, env: &mut environment::Environment) -> Option<object::Object> {
-    match (*env).get(ident.clone()) {
+    match (*env).get((&ident).to_string()) {
         Some(value) => return Some(value),
         None => {
             return Some(object::Object::Error(format!(

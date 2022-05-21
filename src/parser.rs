@@ -90,24 +90,20 @@ impl Parser {
         }
     }
     fn parse_let_statement(&mut self) -> Option<ast::Statement> {
-        let stmt_token = self.cur_token.clone();
         if !self.expect_peek(token::TokenType::IDENT) {
             return None;
         }
-        let name_token = self.cur_token.clone();
+        let name = ast::Expression::Identifier {
+            value: (&self.cur_token.literal).to_string(),
+        };
         if !self.expect_peek(token::TokenType::ASSIGN) {
             return None;
         }
-        let name = ast::Expression::Identifier {
-            token: name_token.clone(),
-            value: name_token.literal,
-        };
 
         self.next_token();
 
         if let Some(expression) = self.parse_expression(Precedence::LOWEST) {
             let stmt = ast::Statement::LetStatement {
-                token: stmt_token,
                 name,
                 value: expression,
             };
@@ -120,12 +116,10 @@ impl Parser {
         }
     }
     fn parse_return_statement(&mut self) -> Option<ast::Statement> {
-        let stmt_token = self.cur_token.clone();
         self.next_token();
 
         if let Some(expression) = self.parse_expression(Precedence::LOWEST) {
             let stmt = ast::Statement::ReturnStatement {
-                token: stmt_token,
                 return_value: expression,
             };
             if self.peek_token_is(&token::TokenType::SEMICOLON) {
@@ -137,10 +131,8 @@ impl Parser {
         }
     }
     fn parse_expression_statement(&mut self) -> Option<ast::Statement> {
-        let stmt_token = self.cur_token.clone();
         if let Some(expression) = self.parse_expression(Precedence::LOWEST) {
             let stmt = ast::Statement::ExpressionStatement {
-                token: stmt_token,
                 expression: expression,
             };
             if self.peek_token_is(&token::TokenType::SEMICOLON) {
@@ -153,7 +145,6 @@ impl Parser {
     }
 
     fn parse_block_statement(&mut self) -> Option<ast::Statement> {
-        let token = self.cur_token.clone();
         let mut statements = Vec::new();
 
         self.next_token();
@@ -167,27 +158,26 @@ impl Parser {
             self.next_token();
         }
 
-        return Some(ast::Statement::BlockStatement { token, statements });
+        return Some(ast::Statement::BlockStatement { statements });
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
-        if let Some(left_exp) = self.parse_prefix_expression_fns() {
-            let mut left = left_exp.clone();
+        if let Some(mut left_exp) = self.parse_prefix_expression_fns() {
             while !self.peek_token_is(&token::TokenType::SEMICOLON)
                 && precedence < self.peek_precedence()
             {
-                let t = self.peek_token.token_type.clone();
                 self.next_token();
-                if let Some(left_exp_new) =
-                    self.parse_infix_expression_fns(t, Box::new(left.clone()))
-                {
-                    left = left_exp_new;
+                if let Some(left_exp_new) = self.parse_infix_expression_fns(
+                    self.cur_token.token_type.clone(),
+                    Box::new(left_exp.clone()),
+                ) {
+                    left_exp = left_exp_new;
                 } else {
-                    return Some(left);
+                    return Some(left_exp);
                 }
             }
 
-            return Some(left);
+            return Some(left_exp);
         } else {
             self.no_prefix_parse_fn_error();
             return None;
@@ -229,14 +219,12 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
-        let expression_token = self.cur_token.clone();
-        let expression_operator = self.cur_token.literal.clone();
+        let expression_operator = (&self.cur_token.literal).to_string();
 
         self.next_token();
 
         if let Some(right) = self.parse_expression(Precedence::PREFIX) {
             return Some(ast::Expression::PrefixExpression {
-                token: expression_token,
                 operator: expression_operator,
                 right: Box::new(right),
             });
@@ -246,16 +234,14 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
-        let operator = self.cur_token.literal.clone();
+        let operator = (&self.cur_token.literal).to_string();
 
         let precedence = self.cur_precedence();
         self.next_token();
         if let Some(right) = self.parse_expression(precedence) {
             return Some(ast::Expression::InfixExpression {
-                token,
                 left,
-                operator,
+                operator: operator,
                 right: Box::new(right),
             });
         } else {
@@ -264,11 +250,9 @@ impl Parser {
     }
 
     fn parse_call_expression(&mut self, function: Box<ast::Expression>) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
         match self.parse_call_arguments() {
             Some(arguments) => {
                 return Some(ast::Expression::CallExpression {
-                    token,
                     function,
                     arguments,
                 })
@@ -309,8 +293,6 @@ impl Parser {
     }
 
     fn parse_if_expression(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
-
         if !self.expect_peek(token::TokenType::LPAREN) {
             return None;
         }
@@ -337,7 +319,6 @@ impl Parser {
                             match self.parse_block_statement() {
                                 Some(alternative) => {
                                     let expression = ast::Expression::IfExpression {
-                                        token,
                                         condition: Box::new(condition),
                                         consequence: Box::new(consequence),
                                         alternative: Some(Box::new(alternative)),
@@ -349,7 +330,6 @@ impl Parser {
                         }
 
                         let expression = ast::Expression::IfExpression {
-                            token,
                             condition: Box::new(condition),
                             consequence: Box::new(consequence),
                             alternative: None,
@@ -363,8 +343,6 @@ impl Parser {
         }
     }
     fn parse_function_literal(&mut self) -> Option<ast::Expression> {
-        let token = self.cur_token.clone();
-
         if !self.expect_peek(token::TokenType::LPAREN) {
             return None;
         }
@@ -377,7 +355,6 @@ impl Parser {
                 match self.parse_block_statement() {
                     Some(body) => {
                         return Some(ast::Expression::FunctionLiteral {
-                            token,
                             parameters,
                             body: Box::new(body),
                         })
@@ -391,17 +368,13 @@ impl Parser {
 
     fn parse_identifier(&self) -> ast::Expression {
         return ast::Expression::Identifier {
-            token: self.cur_token.clone(),
-            value: self.cur_token.literal.clone(),
+            value: (&self.cur_token.literal).to_string(),
         };
     }
 
     fn parse_integer_literal(&mut self) -> Option<ast::Expression> {
         if let Ok(value) = self.cur_token.literal.parse::<i64>() {
-            return Some(ast::Expression::IntegerLiteral {
-                token: self.cur_token.clone(),
-                value,
-            });
+            return Some(ast::Expression::IntegerLiteral { value });
         } else {
             self.errors.push(format!(
                 "could not parse {} as integer",
@@ -413,7 +386,6 @@ impl Parser {
 
     fn parse_boolean(&mut self) -> ast::Expression {
         return ast::Expression::Boolean {
-            token: self.cur_token.clone(),
             value: self.cur_token_is(&token::TokenType::TRUE),
         };
     }
@@ -440,15 +412,13 @@ impl Parser {
         self.next_token();
 
         parameters.push(ast::Expression::Identifier {
-            token: self.cur_token.clone(),
-            value: self.cur_token.literal.clone(),
+            value: (&self.cur_token.literal).to_string(),
         });
         while self.peek_token_is(&token::TokenType::COMMA) {
             self.next_token();
             self.next_token();
             parameters.push(ast::Expression::Identifier {
-                token: self.cur_token.clone(),
-                value: self.cur_token.literal.clone(),
+                value: (&self.cur_token.literal).to_string(),
             });
         }
 
@@ -540,9 +510,18 @@ return 993322;
         check_parser_errors(p);
 
         assert_eq!(program.statements.len(), 3);
-        for stmt in program.statements {
-            assert_eq!(stmt.token_literal(), "return");
-        }
+        assert_eq!(
+            format!("{}", program.statements[0]),
+            format!("return {};", 5)
+        );
+        assert_eq!(
+            format!("{}", program.statements[1]),
+            format!("return {};", 10)
+        );
+        assert_eq!(
+            format!("{}", program.statements[2]),
+            format!("return {};", 993322)
+        );
     }
 
     #[test]
@@ -555,13 +534,8 @@ return 993322;
         check_parser_errors(p);
 
         assert_eq!(program.statements.len(), 1);
-        if let ast::Statement::ExpressionStatement {
-            token: _,
-            expression,
-        } = &program.statements[0]
-        {
-            assert_eq!(expression.token_literal(), "foobar");
-            if let ast::Expression::Identifier { token: _, value } = expression {
+        if let ast::Statement::ExpressionStatement { expression } = &program.statements[0] {
+            if let ast::Expression::Identifier { value } = expression {
                 assert_eq!(value, "foobar");
             } else {
                 panic!(
@@ -586,13 +560,8 @@ return 993322;
         check_parser_errors(p);
 
         assert_eq!(program.statements.len(), 1);
-        if let ast::Statement::ExpressionStatement {
-            token: _,
-            expression,
-        } = &program.statements[0]
-        {
-            assert_eq!(expression.token_literal(), "5");
-            if let ast::Expression::IntegerLiteral { token: _, value } = expression {
+        if let ast::Statement::ExpressionStatement { expression } = &program.statements[0] {
+            if let ast::Expression::IntegerLiteral { value } = expression {
                 assert_eq!(*value, 5 as i64);
             } else {
                 panic!(
@@ -625,20 +594,10 @@ return 993322;
             check_parser_errors(p);
             assert_eq!(program.statements.len(), 1);
 
-            if let ast::Statement::ExpressionStatement {
-                token: _,
-                expression,
-            } = &program.statements[0]
-            {
-                if let ast::Expression::PrefixExpression {
-                    token: _,
-                    operator,
-                    right,
-                } = expression
-                {
+            if let ast::Statement::ExpressionStatement { expression } = &program.statements[0] {
+                if let ast::Expression::PrefixExpression { operator, right } = expression {
                     assert_eq!(operator, t.1);
-                    let right_exp: ast::Expression = (**right).clone();
-                    if !test_integer_literal(right_exp, t.2) {
+                    if !test_integer_literal((**right).clone(), t.2) {
                         return;
                     }
                 } else {
@@ -672,13 +631,8 @@ return 993322;
             check_parser_errors(p);
             assert_eq!(program.statements.len(), 1);
 
-            if let ast::Statement::ExpressionStatement {
-                token: _,
-                expression,
-            } = &program.statements[0]
-            {
+            if let ast::Statement::ExpressionStatement { expression } = &program.statements[0] {
                 if let ast::Expression::InfixExpression {
-                    token: _,
                     left,
                     operator,
                     right,
@@ -830,15 +784,8 @@ return 993322;
     }
 
     fn test_let_statement(stmt: &ast::Statement, t: &str) {
-        assert_eq!(stmt.token_literal(), "let");
-
-        if let ast::Statement::LetStatement {
-            name,
-            token: _,
-            value: _,
-        } = stmt
-        {
-            if let ast::Expression::Identifier { token: _, value } = name {
+        if let ast::Statement::LetStatement { name, value: _ } = stmt {
+            if let ast::Expression::Identifier { value } = name {
                 assert_eq!(value, t);
             } else {
                 panic!("expression does not equal to identifier.");
@@ -849,12 +796,7 @@ return 993322;
     }
 
     fn test_integer_literal(il: ast::Expression, value: i64) -> bool {
-        assert_eq!(il.token_literal(), format!("{}", value));
-        if let ast::Expression::IntegerLiteral {
-            token: _,
-            value: integ,
-        } = il
-        {
+        if let ast::Expression::IntegerLiteral { value: integ } = il {
             assert_eq!(integ, value);
             return true;
         } else {
