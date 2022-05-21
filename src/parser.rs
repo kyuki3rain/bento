@@ -94,7 +94,7 @@ impl Parser {
             return None;
         }
         let name = ast::Expression::Identifier {
-            value: (&self.cur_token.literal).to_string(),
+            value: self.cur_token.literal.clone(),
         };
         if !self.expect_peek(token::TokenType::ASSIGN) {
             return None;
@@ -162,22 +162,23 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
-        if let Some(mut left_exp) = self.parse_prefix_expression_fns() {
+        if let Some(left_exp) = self.parse_prefix_expression_fns() {
+            let mut left = left_exp.clone();
             while !self.peek_token_is(&token::TokenType::SEMICOLON)
                 && precedence < self.peek_precedence()
             {
+                let t = self.peek_token.token_type.clone();
                 self.next_token();
-                if let Some(left_exp_new) = self.parse_infix_expression_fns(
-                    self.cur_token.token_type.clone(),
-                    Box::new(left_exp.clone()),
-                ) {
-                    left_exp = left_exp_new;
+                if let Some(left_exp_new) =
+                    self.parse_infix_expression_fns(t, Box::new(left.clone()))
+                {
+                    left = left_exp_new;
                 } else {
-                    return Some(left_exp);
+                    return Some(left);
                 }
             }
 
-            return Some(left_exp);
+            return Some(left);
         } else {
             self.no_prefix_parse_fn_error();
             return None;
@@ -219,7 +220,7 @@ impl Parser {
     }
 
     fn parse_prefix_expression(&mut self) -> Option<ast::Expression> {
-        let expression_operator = (&self.cur_token.literal).to_string();
+        let expression_operator = self.cur_token.literal.clone();
 
         self.next_token();
 
@@ -234,14 +235,14 @@ impl Parser {
     }
 
     fn parse_infix_expression(&mut self, left: Box<ast::Expression>) -> Option<ast::Expression> {
-        let operator = (&self.cur_token.literal).to_string();
+        let operator = self.cur_token.literal.clone();
 
         let precedence = self.cur_precedence();
         self.next_token();
         if let Some(right) = self.parse_expression(precedence) {
             return Some(ast::Expression::InfixExpression {
                 left,
-                operator: operator,
+                operator,
                 right: Box::new(right),
             });
         } else {
@@ -368,7 +369,7 @@ impl Parser {
 
     fn parse_identifier(&self) -> ast::Expression {
         return ast::Expression::Identifier {
-            value: (&self.cur_token.literal).to_string(),
+            value: self.cur_token.literal.clone(),
         };
     }
 
@@ -412,13 +413,13 @@ impl Parser {
         self.next_token();
 
         parameters.push(ast::Expression::Identifier {
-            value: (&self.cur_token.literal).to_string(),
+            value: self.cur_token.literal.clone(),
         });
         while self.peek_token_is(&token::TokenType::COMMA) {
             self.next_token();
             self.next_token();
             parameters.push(ast::Expression::Identifier {
-                value: (&self.cur_token.literal).to_string(),
+                value: self.cur_token.literal.clone(),
             });
         }
 
@@ -510,18 +511,15 @@ return 993322;
         check_parser_errors(p);
 
         assert_eq!(program.statements.len(), 3);
-        assert_eq!(
-            format!("{}", program.statements[0]),
-            format!("return {};", 5)
-        );
-        assert_eq!(
-            format!("{}", program.statements[1]),
-            format!("return {};", 10)
-        );
-        assert_eq!(
-            format!("{}", program.statements[2]),
-            format!("return {};", 993322)
-        );
+        for stmt in program.statements {
+            assert!(
+                if let ast::Statement::ReturnStatement { return_value: _ } = stmt {
+                    true
+                } else {
+                    false
+                }
+            )
+        }
     }
 
     #[test]
@@ -597,7 +595,8 @@ return 993322;
             if let ast::Statement::ExpressionStatement { expression } = &program.statements[0] {
                 if let ast::Expression::PrefixExpression { operator, right } = expression {
                     assert_eq!(operator, t.1);
-                    if !test_integer_literal((**right).clone(), t.2) {
+                    let right_exp: ast::Expression = (**right).clone();
+                    if !test_integer_literal(right_exp, t.2) {
                         return;
                     }
                 } else {

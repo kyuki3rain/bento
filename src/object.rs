@@ -1,5 +1,7 @@
 use super::{ast, environment};
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum Object {
@@ -10,7 +12,7 @@ pub enum Object {
     Function {
         parameters: Vec<ast::Expression>,
         body: ast::Statement,
-        env: environment::Environment,
+        env: Rc<RefCell<environment::Environment>>,
     },
     Null,
 }

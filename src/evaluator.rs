@@ -1,350 +1,339 @@
 use super::{ast, environment, object};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub fn eval_program(
-    program: ast::Program,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    let mut result = None;
-    for stmt in program.statements {
-        result = eval_statement(stmt, env);
-
-        if let Some(r) = result {
-            match r {
-                object::Object::Return(value) => return Some(*value),
-                object::Object::Error(value) => return Some(object::Object::Error(value)),
-                _ => result = Some(r),
-            }
-        }
-    }
-    return result;
+pub struct Evaluator {
+    env: Rc<RefCell<environment::Environment>>,
 }
 
-fn eval_block_statement(
-    statements: Vec<ast::Statement>,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    let mut result = None;
-    for stmt in statements {
-        result = eval_statement(stmt, env);
-        if let Some(r) = result {
-            match r {
-                object::Object::Return(value) => return Some(object::Object::Return(value)),
-                object::Object::Error(value) => return Some(object::Object::Error(value)),
-                _ => result = Some(r),
-            }
-        }
+impl Evaluator {
+    pub fn new() -> Self {
+        return Evaluator {
+            env: Rc::new(RefCell::new(environment::Environment::new())),
+        };
     }
-    return result;
-}
 
-fn eval_statement(
-    stmt: ast::Statement,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    match stmt {
-        ast::Statement::LetStatement { name, value } => match eval_expression(value, env) {
-            Some(val) => {
-                if !is_error(&val) {
-                    env.set(name.to_string(), &val);
+    pub fn eval_program(&mut self, program: ast::Program) -> Option<object::Object> {
+        let mut result = None;
+        for stmt in program.statements {
+            result = self.eval_statement(stmt);
+            if let Some(r) = result {
+                match r {
+                    object::Object::Return(value) => return Some(*value),
+                    object::Object::Error(value) => return Some(object::Object::Error(value)),
+                    _ => result = Some(r),
                 }
-                return Some(val);
             }
-            None => return None,
-        },
-        ast::Statement::ReturnStatement { return_value } => {
-            match eval_expression(return_value, env) {
-                Some(value) => {
-                    if is_error(&value) {
-                        return Some(value);
+        }
+        return result;
+    }
+    fn eval_block_statement(&mut self, statements: Vec<ast::Statement>) -> Option<object::Object> {
+        let mut result = None;
+        for stmt in statements {
+            result = self.eval_statement(stmt);
+            if let Some(r) = result {
+                match r {
+                    object::Object::Return(value) => return Some(object::Object::Return(value)),
+                    object::Object::Error(value) => return Some(object::Object::Error(value)),
+                    _ => result = Some(r),
+                }
+            }
+        }
+        return result;
+    }
+    fn eval_statement(&mut self, stmt: ast::Statement) -> Option<object::Object> {
+        match stmt {
+            ast::Statement::LetStatement { name, value } => match self.eval_expression(value) {
+                Some(val) => {
+                    if !Evaluator::is_error(&val) {
+                        self.env.borrow_mut().set(name.to_string(), &val);
                     }
-                    return Some(object::Object::Return(Box::new(value)));
+                    return Some(val);
                 }
                 None => return None,
-            }
-        }
-        ast::Statement::ExpressionStatement { expression } => {
-            return eval_expression(expression, env)
-        }
-        ast::Statement::BlockStatement { statements } => {
-            return eval_block_statement(statements, env)
-        }
-    }
-}
-
-fn eval_expression(
-    exp: ast::Expression,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    match exp {
-        ast::Expression::Identifier { value } => return eval_identifier(value, env),
-        ast::Expression::IntegerLiteral { value } => return Some(object::Object::Integer(value)),
-        ast::Expression::PrefixExpression { operator, right } => match eval_expression(*right, env)
-        {
-            Some(right_evaluated) => {
-                if is_error(&right_evaluated) {
-                    return Some(right_evaluated);
-                }
-                return eval_prefix_expression(operator, right_evaluated, env);
-            }
-            None => return None,
-        },
-        ast::Expression::InfixExpression {
-            left,
-            operator,
-            right,
-        } => match eval_expression(*right, env) {
-            Some(right_evaluated) => {
-                if is_error(&right_evaluated) {
-                    return Some(right_evaluated);
-                }
-                match eval_expression(*left, env) {
-                    Some(left_evaluated) => {
-                        if is_error(&left_evaluated) {
-                            return Some(left_evaluated);
+            },
+            ast::Statement::ReturnStatement { return_value } => {
+                match self.eval_expression(return_value) {
+                    Some(value) => {
+                        if Evaluator::is_error(&value) {
+                            return Some(value);
                         }
-                        return eval_infix_expression(
-                            operator,
-                            left_evaluated,
-                            right_evaluated,
-                            env,
-                        );
+                        return Some(object::Object::Return(Box::new(value)));
                     }
                     None => return None,
                 }
             }
-            None => return None,
-        },
-        ast::Expression::Boolean { value } => return Some(eval_boolean(value)),
-        ast::Expression::IfExpression {
-            condition,
-            consequence,
-            alternative,
-        } => return eval_if_expression(condition, consequence, alternative, env),
-        ast::Expression::FunctionLiteral { parameters, body } => {
-            return Some(object::Object::Function {
-                parameters,
-                env: env.clone(),
-                body: *body,
-            })
+            ast::Statement::ExpressionStatement { expression } => {
+                return self.eval_expression(expression)
+            }
+            ast::Statement::BlockStatement { statements } => {
+                return self.eval_block_statement(statements)
+            }
         }
-        ast::Expression::CallExpression {
-            function,
-            arguments,
-        } => {
-            if let Some(func) = eval_expression(*function, env) {
-                let args = eval_expressions(arguments, env);
-                if args.len() == 1 && is_error(&args[0]) {
-                    return Some(args[0].clone());
+    }
+    fn eval_expression(&mut self, exp: ast::Expression) -> Option<object::Object> {
+        match exp {
+            ast::Expression::Identifier { value } => return self.eval_identifier(value),
+            ast::Expression::IntegerLiteral { value } => {
+                return Some(object::Object::Integer(value))
+            }
+            ast::Expression::PrefixExpression { operator, right } => {
+                match self.eval_expression(*right) {
+                    Some(right_evaluated) => {
+                        if Evaluator::is_error(&right_evaluated) {
+                            return Some(right_evaluated);
+                        }
+                        return Evaluator::eval_prefix_expression(operator, right_evaluated);
+                    }
+                    None => return None,
                 }
-                return apply_function(func, args);
-            } else {
+            }
+            ast::Expression::InfixExpression {
+                left,
+                operator,
+                right,
+            } => match self.eval_expression(*right) {
+                Some(right_evaluated) => {
+                    if Evaluator::is_error(&right_evaluated) {
+                        return Some(right_evaluated);
+                    }
+                    match self.eval_expression(*left) {
+                        Some(left_evaluated) => {
+                            if Evaluator::is_error(&left_evaluated) {
+                                return Some(left_evaluated);
+                            }
+                            return self.eval_infix_expression(
+                                operator,
+                                left_evaluated,
+                                right_evaluated,
+                            );
+                        }
+                        None => return None,
+                    }
+                }
+                None => return None,
+            },
+            ast::Expression::Boolean { value } => return Some(Evaluator::eval_boolean(value)),
+            ast::Expression::IfExpression {
+                condition,
+                consequence,
+                alternative,
+            } => return self.eval_if_expression(condition, consequence, alternative),
+            ast::Expression::FunctionLiteral { parameters, body } => {
+                return Some(object::Object::Function {
+                    parameters,
+                    env: Rc::clone(&self.env),
+                    body: *body,
+                })
+            }
+            ast::Expression::CallExpression {
+                function,
+                arguments,
+            } => {
+                if let Some(func) = self.eval_expression(*function) {
+                    let args = self.eval_expressions(arguments);
+                    if args.len() == 1 && Evaluator::is_error(&args[0]) {
+                        return Some(args[0].clone());
+                    }
+                    return self.apply_function(func, args);
+                } else {
+                    return None;
+                }
+            }
+        }
+    }
+    fn apply_function(
+        &mut self,
+        func: object::Object,
+        args: Vec<object::Object>,
+    ) -> Option<object::Object> {
+        match func {
+            object::Object::Function {
+                parameters,
+                body,
+                env,
+            } => {
+                let current_env = Rc::clone(&self.env);
+                let mut extended_env =
+                    environment::Environment::new_enclosed_environment(Rc::clone(&env));
+                for (i, p) in parameters.iter().enumerate() {
+                    match p {
+                        ast::Expression::Identifier { value } => {
+                            extended_env.set((&value).to_string(), &args[i])
+                        }
+                        _ => return None,
+                    }
+                }
+                self.env = Rc::new(RefCell::new(extended_env));
+                if let Some(evaluated) = self.eval_statement(body) {
+                    match evaluated {
+                        object::Object::Return(value) => return Some(*value),
+                        _ => {
+                            return Some(evaluated);
+                        }
+                    }
+                }
+                self.env = current_env;
                 return None;
             }
+            _ => None,
         }
     }
-}
-
-fn apply_function(func: object::Object, args: Vec<object::Object>) -> Option<object::Object> {
-    match func {
-        object::Object::Function {
-            parameters,
-            body,
-            env,
-        } => {
-            let mut extended_env = env.new_enclosed_environment();
-
-            for (i, p) in parameters.iter().enumerate() {
-                match p {
-                    ast::Expression::Identifier { value } => {
-                        extended_env.set((&value).to_string(), &args[i])
-                    }
-                    _ => return None,
+    fn eval_expressions(&mut self, exps: Vec<ast::Expression>) -> Vec<object::Object> {
+        let mut result = Vec::new();
+        for e in exps {
+            if let Some(evaluated) = self.eval_expression(e) {
+                if Evaluator::is_error(&evaluated) {
+                    return vec![evaluated];
                 }
+                result.push(evaluated);
             }
-
-            if let Some(evaluated) = eval_statement(body, &mut extended_env) {
-                match evaluated {
-                    object::Object::Return(value) => return Some(*value),
-                    _ => {
-                        return Some(evaluated);
-                    }
-                }
-            }
-
-            return None;
         }
-        _ => None,
+        return result;
     }
-}
-
-fn eval_expressions(
-    exps: Vec<ast::Expression>,
-    env: &mut environment::Environment,
-) -> Vec<object::Object> {
-    let mut result = Vec::new();
-    for e in exps {
-        if let Some(evaluated) = eval_expression(e, env) {
-            if is_error(&evaluated) {
-                return vec![evaluated];
+    fn eval_prefix_expression(operator: String, right: object::Object) -> Option<object::Object> {
+        match &*operator {
+            "!" => return Evaluator::eval_bang_operator_expression(right),
+            "-" => return Evaluator::eval_minus_prefix_operator_expression(right),
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "unknown operator: {}{}",
+                    operator, right
+                )))
             }
-            result.push(evaluated);
         }
     }
-    return result;
-}
-
-fn eval_prefix_expression(
-    operator: String,
-    right: object::Object,
-    _: &mut environment::Environment,
-) -> Option<object::Object> {
-    match &*operator {
-        "!" => return eval_bang_operator_expression(right),
-        "-" => return eval_minus_prefix_operator_expression(right),
-        _ => {
+    fn eval_infix_expression(
+        &mut self,
+        operator: String,
+        left: object::Object,
+        right: object::Object,
+    ) -> Option<object::Object> {
+        if format!("{}", left) != format!("{}", right) {
             return Some(object::Object::Error(format!(
-                "unknown operator: {}{}",
-                operator, right
-            )))
+                "type mismatch: {} {} {}",
+                left, operator, right
+            )));
         }
-    }
-}
-
-fn eval_infix_expression(
-    operator: String,
-    left: object::Object,
-    right: object::Object,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    if format!("{}", left) != format!("{}", right) {
-        return Some(object::Object::Error(format!(
-            "type mismatch: {} {} {}",
-            left, operator, right
-        )));
-    }
-
-    match left {
-        object::Object::Integer(left_value) => match right {
-            object::Object::Integer(right_value) => {
-                return eval_integer_infix_expression(operator, left_value, right_value, env)
-            }
-            _ => return None,
-        },
-        object::Object::Boolean(left_value) => match right {
-            object::Object::Boolean(right_value) => match &*operator {
-                "==" => return Some(eval_boolean(left_value == right_value)),
-                "!=" => return Some(eval_boolean(left_value != right_value)),
-                _ => {
-                    return Some(object::Object::Error(format!(
-                        "unknown operator: {} {} {}",
-                        left, operator, right
-                    )))
+        match left {
+            object::Object::Integer(left_value) => match right {
+                object::Object::Integer(right_value) => {
+                    return Evaluator::eval_integer_infix_expression(
+                        operator,
+                        left_value,
+                        right_value,
+                    )
                 }
+                _ => return None,
+            },
+            object::Object::Boolean(left_value) => match right {
+                object::Object::Boolean(right_value) => match &*operator {
+                    "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
+                    "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
+                    _ => {
+                        return Some(object::Object::Error(format!(
+                            "unknown operator: {} {} {}",
+                            left, operator, right
+                        )))
+                    }
+                },
+                _ => return None,
             },
             _ => return None,
-        },
-        _ => return None,
-    }
-}
-
-fn eval_integer_infix_expression(
-    operator: String,
-    left_value: i64,
-    right_value: i64,
-    _: &mut environment::Environment,
-) -> Option<object::Object> {
-    match &*operator {
-        "+" => return Some(object::Object::Integer(left_value + right_value)),
-        "-" => return Some(object::Object::Integer(left_value - right_value)),
-        "*" => return Some(object::Object::Integer(left_value * right_value)),
-        "/" => return Some(object::Object::Integer(left_value / right_value)),
-        "<" => return Some(eval_boolean(left_value < right_value)),
-        ">" => return Some(eval_boolean(left_value > right_value)),
-        "==" => return Some(eval_boolean(left_value == right_value)),
-        "!=" => return Some(eval_boolean(left_value != right_value)),
-        _ => {
-            return Some(object::Object::Error(format!(
-                "unknown operator: {} {} {}",
-                left_value, operator, right_value
-            )))
         }
     }
-}
-
-fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
-    match right {
-        object::Object::Boolean(value) => return Some(eval_boolean(!value)),
-        object::Object::Null => return Some(object::TRUE),
-        _ => Some(object::FALSE),
-    }
-}
-
-fn eval_boolean(value: bool) -> object::Object {
-    if value {
-        return object::TRUE;
-    } else {
-        return object::FALSE;
-    }
-}
-
-fn eval_minus_prefix_operator_expression(right: object::Object) -> Option<object::Object> {
-    match right {
-        object::Object::Integer(value) => return Some(object::Object::Integer(-value)),
-        _ => {
-            return Some(object::Object::Error(format!(
-                "unknown operator: -{}",
-                right
-            )))
+    fn eval_integer_infix_expression(
+        operator: String,
+        left_value: i64,
+        right_value: i64,
+    ) -> Option<object::Object> {
+        match &*operator {
+            "+" => return Some(object::Object::Integer(left_value + right_value)),
+            "-" => return Some(object::Object::Integer(left_value - right_value)),
+            "*" => return Some(object::Object::Integer(left_value * right_value)),
+            "/" => return Some(object::Object::Integer(left_value / right_value)),
+            "<" => return Some(Evaluator::eval_boolean(left_value < right_value)),
+            ">" => return Some(Evaluator::eval_boolean(left_value > right_value)),
+            "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
+            "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "unknown operator: {} {} {}",
+                    left_value, operator, right_value
+                )))
+            }
         }
     }
-}
-
-fn eval_if_expression(
-    condition: Box<ast::Expression>,
-    consequence: Box<ast::Statement>,
-    alternative: Option<Box<ast::Statement>>,
-    env: &mut environment::Environment,
-) -> Option<object::Object> {
-    if let Some(evaluated_condition) = eval_expression(*condition, env) {
-        if is_error(&evaluated_condition) {
-            return Some(evaluated_condition);
+    fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
+        match right {
+            object::Object::Boolean(value) => return Some(Evaluator::eval_boolean(!value)),
+            object::Object::Null => return Some(object::TRUE),
+            _ => Some(object::FALSE),
         }
-        if is_truthy(evaluated_condition) {
-            return eval_statement(*consequence, env);
-        } else if let Some(alt) = alternative {
-            return eval_statement(*alt, env);
+    }
+    fn eval_boolean(value: bool) -> object::Object {
+        if value {
+            return object::TRUE;
         } else {
-            return Some(object::NULL);
-        }
-    } else {
-        return None;
-    }
-}
-
-fn eval_identifier(ident: String, env: &mut environment::Environment) -> Option<object::Object> {
-    match (*env).get((&ident).to_string()) {
-        Some(value) => return Some(value),
-        None => {
-            return Some(object::Object::Error(format!(
-                "identifier not found: {}",
-                ident
-            )))
+            return object::FALSE;
         }
     }
-}
-
-fn is_truthy(obj: object::Object) -> bool {
-    match obj {
-        object::Object::Null => return false,
-        object::Object::Boolean(value) => return value,
-        _ => return true,
+    fn eval_minus_prefix_operator_expression(right: object::Object) -> Option<object::Object> {
+        match right {
+            object::Object::Integer(value) => return Some(object::Object::Integer(-value)),
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "unknown operator: -{}",
+                    right
+                )))
+            }
+        }
     }
-}
+    fn eval_if_expression(
+        &mut self,
+        condition: Box<ast::Expression>,
+        consequence: Box<ast::Statement>,
+        alternative: Option<Box<ast::Statement>>,
+    ) -> Option<object::Object> {
+        if let Some(evaluated_condition) = self.eval_expression(*condition) {
+            if Evaluator::is_error(&evaluated_condition) {
+                return Some(evaluated_condition);
+            }
+            if Evaluator::is_truthy(evaluated_condition) {
+                return self.eval_statement(*consequence);
+            } else if let Some(alt) = alternative {
+                return self.eval_statement(*alt);
+            } else {
+                return Some(object::NULL);
+            }
+        } else {
+            return None;
+        }
+    }
 
-fn is_error(obj: &object::Object) -> bool {
-    match obj {
-        object::Object::Error(_) => return true,
-        _ => return false,
+    fn eval_identifier(&mut self, ident: String) -> Option<object::Object> {
+        match self.env.borrow_mut().get((&ident).to_string()) {
+            Some(value) => return Some(value),
+            None => {
+                return Some(object::Object::Error(format!(
+                    "identifier not found: {}",
+                    ident
+                )))
+            }
+        }
+    }
+    fn is_truthy(obj: object::Object) -> bool {
+        match obj {
+            object::Object::Null => return false,
+            object::Object::Boolean(value) => return value,
+            _ => return true,
+        }
+    }
+    fn is_error(obj: &object::Object) -> bool {
+        match obj {
+            object::Object::Error(_) => return true,
+            _ => return false,
+        }
     }
 }
 
@@ -560,12 +549,12 @@ mod evaluator_tests {
     }
 
     fn test_eval(input: String) -> object::Object {
-        let mut env = environment::Environment::new();
+        let mut evaluator = Evaluator::new();
         let l = lexer::Lexer::new(input);
         let mut p = parser::Parser::new(l);
         let program = p.parse_program();
 
-        match eval_program(program, &mut env) {
+        match evaluator.eval_program(program) {
             Some(obj) => return obj,
             None => panic!(),
         }

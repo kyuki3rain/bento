@@ -1,10 +1,12 @@
 use super::object;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Environment {
     store: HashMap<String, object::Object>,
-    outer: Option<Box<Environment>>,
+    outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
@@ -16,10 +18,10 @@ impl Environment {
         };
     }
 
-    pub fn new_enclosed_environment(self) -> Environment {
+    pub fn new_enclosed_environment(outer: Rc<RefCell<Environment>>) -> Environment {
         return Environment {
             store: HashMap::new(),
-            outer: Some(Box::new(self)),
+            outer: Some(outer),
         };
     }
 
@@ -27,7 +29,7 @@ impl Environment {
         match self.store.get(&name) {
             Some(value) => return Some(value.clone()),
             None => match &self.outer {
-                Some(out_env) => return out_env.get(name),
+                Some(out_env) => return out_env.borrow_mut().get(name),
                 None => return None,
             },
         }
