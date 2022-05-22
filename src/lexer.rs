@@ -67,6 +67,7 @@ impl Lexer {
             ')' => token::new_token(token::TokenType::RPAREN, self.ch.to_string()),
             '{' => token::new_token(token::TokenType::LBRACE, self.ch.to_string()),
             '}' => token::new_token(token::TokenType::RBRACE, self.ch.to_string()),
+            '"' => token::new_token(token::TokenType::STRING, self.read_string()),
             '\0' => token::Token {
                 token_type: token::TokenType::EOF,
                 literal: String::from(""),
@@ -102,6 +103,18 @@ impl Lexer {
         let position = self.position;
         while self.ch.is_alphabetic() {
             self.read_char();
+        }
+
+        return self.get_slice(position, self.position);
+    }
+
+    fn read_string(&mut self) -> String {
+        let position = self.position + 1;
+        loop {
+            self.read_char();
+            if self.ch == '"' || self.ch == '\0' {
+                break;
+            }
         }
 
         return self.get_slice(position, self.position);
@@ -185,6 +198,8 @@ if (5 < 10) {
 }
 10 == 10;
 10 != 9;
+\"foobar\"
+\"foo bar\"
         ",
         );
         counted_array!(
@@ -262,6 +277,8 @@ if (5 < 10) {
                 (token::TokenType::NOTEQ, "!="),
                 (token::TokenType::INT, "9"),
                 (token::TokenType::SEMICOLON, ";"),
+                (token::TokenType::STRING, "foobar"),
+                (token::TokenType::STRING, "foo bar"),
                 (token::TokenType::EOF, ""),
             ]
         );

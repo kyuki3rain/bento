@@ -77,6 +77,7 @@ impl Evaluator {
             ast::Expression::IntegerLiteral { value } => {
                 return Some(object::Object::Integer(value))
             }
+            ast::Expression::StringLiteral { value } => return Some(object::Object::String(value)),
             ast::Expression::PrefixExpression { operator, right } => {
                 match self.eval_expression(*right) {
                     Some(right_evaluated) => {
@@ -367,6 +368,24 @@ mod evaluator_tests {
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
             test_integer_object(evaluated, t.1);
+        }
+    }
+
+    #[test]
+    fn test_eval_string_literal() {
+        counted_array!(
+            let tests: [(&str, &str); _] = [
+                ("\"Hello World!\"", "Hello World!"),
+            ]
+        );
+
+        for t in tests {
+            let evaluated = test_eval(t.0.to_string());
+            if let object::Object::String(value) = evaluated {
+                assert_eq!(value, t.1.to_string());
+            } else {
+                panic!("not string");
+            }
         }
     }
 
