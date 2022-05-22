@@ -1,3 +1,4 @@
+extern crate termion;
 #[macro_use]
 #[cfg(test)]
 extern crate counted_array;

@@ -141,6 +141,7 @@ impl Evaluator {
                     return None;
                 }
             }
+            ast::Expression::NeedNext => return None,
         }
     }
     fn apply_function(
@@ -524,7 +525,7 @@ mod evaluator_tests {
     fn test_function_object() {
         counted_array!(
             let tests: [(&str, Vec<&str>, &str); _] = [
-                ("fn(x) { x + 2; };", vec!["x"], "{\n\t(x + 2)\n}"),
+                ("fn(x) { x + 2; };", vec!["x"], "{\r\n\t(x + 2)\r\n}"),
             ]
         );
 
@@ -569,7 +570,7 @@ mod evaluator_tests {
 
     fn test_eval(input: String) -> object::Object {
         let mut evaluator = Evaluator::new();
-        let l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(&input);
         let mut p = parser::Parser::new(l);
         let program = p.parse_program();
 
