@@ -10,6 +10,7 @@ pub enum Object {
     Boolean(bool),
     Return(Box<Object>),
     Error(String),
+    Builtin(fn(Vec<Object>) -> Object),
     Function {
         parameters: Vec<ast::Expression>,
         body: ast::Statement,
@@ -26,6 +27,7 @@ impl fmt::Display for Object {
             Object::Boolean(_) => return write!(f, "BOOLEAN"),
             Object::Return(_) => return write!(f, "RETURN"),
             Object::Error(_) => return write!(f, "ERROR"),
+            Object::Builtin(_) => return write!(f, "BUILTIN"),
             Object::Function {
                 parameters: _,
                 body: _,
@@ -44,6 +46,7 @@ impl Object {
             Object::Boolean(value) => return format!("{}", value),
             Object::Return(value) => return format!("{}", value),
             Object::Error(value) => return format!("{}", value),
+            Object::Builtin(_) => return format!("builtin-functions"),
             Object::Function {
                 parameters,
                 body,

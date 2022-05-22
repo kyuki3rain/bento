@@ -4,6 +4,7 @@ extern crate termion;
 extern crate counted_array;
 
 mod ast;
+mod builtin;
 mod environment;
 mod evaluator;
 mod lexer;

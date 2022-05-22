@@ -1,15 +1,18 @@
-use super::{ast, environment, object};
+use super::{ast, builtin, environment, object};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Evaluator {
     env: Rc<RefCell<environment::Environment>>,
+    builtin: HashMap<String, object::Object>,
 }
 
 impl Evaluator {
     pub fn new() -> Self {
         return Evaluator {
             env: Rc::new(RefCell::new(environment::Environment::new())),
+            builtin: builtin::new_builtins(),
         };
     }
 
@@ -178,6 +181,7 @@ impl Evaluator {
                 self.env = current_env;
                 return None;
             }
+            object::Object::Builtin(function) => Some(function(args)),
             _ => None,
         }
     }
@@ -349,15 +353,16 @@ impl Evaluator {
     }
 
     fn eval_identifier(&mut self, ident: String) -> Option<object::Object> {
-        match self.env.borrow_mut().get((&ident).to_string()) {
-            Some(value) => return Some(value),
-            None => {
-                return Some(object::Object::Error(format!(
-                    "identifier not found: {}",
-                    ident
-                )))
-            }
+        if let Some(value) = self.env.borrow_mut().get((&ident).to_string()) {
+            return Some(value);
         }
+        if let Some(value) = self.builtin.get(&ident) {
+            return Some(value.clone());
+        }
+        return Some(object::Object::Error(format!(
+            "identifier not found: {}",
+            ident
+        )));
     }
     fn is_truthy(obj: object::Object) -> bool {
         match obj {
@@ -545,6 +550,8 @@ mod evaluator_tests {
                 }", "unknown operator: -BOOLEAN"),
                 ("foobar", "identifier not found: foobar"),
                 ("\"Hello\" - \"World\"", "unknown operator: STRING - STRING"),
+                ("len(1)", "argument to `len` not supported, got INTEGER"),
+                ("len(\"one\", \"two\")",  "wrong number of arguments. got=2, want=1"),
             ]
         );
 
@@ -608,11 +615,36 @@ mod evaluator_tests {
         }
     }
 
+    #[test]
+    fn test_builtin_functions() {
+        counted_array!(
+            let tests: [(&str, i64); _] = [
+                ("len(\"\")", 0),
+                ("len(\"four\")", 4),
+                ("len(\"hello world\")", 11),
+            ]
+        );
+
+        for t in tests {
+            let evaluated = test_eval(t.0.to_string());
+            println!("{}", evaluated.string());
+            test_integer_object(evaluated, t.1);
+        }
+    }
+
     fn test_eval(input: String) -> object::Object {
         let mut evaluator = Evaluator::new();
         let l = lexer::Lexer::new(&input);
         let mut p = parser::Parser::new(l);
         let program = p.parse_program();
+
+        if p.errors.len() != 0 {
+            let mut s = "".to_string();
+            for err in p.errors {
+                s += &format!("\t{}\r\n", err);
+            }
+            panic!("parser errors:\r\n{}", s);
+        }
 
         match evaluator.eval_program(program) {
             Some(obj) => return obj,
