@@ -227,6 +227,16 @@ impl Evaluator {
                 }
                 _ => return None,
             },
+            object::Object::String(left_value) => match right {
+                object::Object::String(right_value) => {
+                    return Evaluator::eval_string_infix_expression(
+                        operator,
+                        left_value,
+                        right_value,
+                    )
+                }
+                _ => return None,
+            },
             object::Object::Boolean(left_value) => match right {
                 object::Object::Boolean(right_value) => match &*operator {
                     "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
@@ -265,6 +275,30 @@ impl Evaluator {
             }
         }
     }
+
+    fn eval_string_infix_expression(
+        operator: String,
+        left_value: String,
+        right_value: String,
+    ) -> Option<object::Object> {
+        match &*operator {
+            "+" => {
+                return Some(object::Object::String(format!(
+                    "{}{}",
+                    left_value, right_value
+                )))
+            }
+            "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
+            "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "unknown operator: STRING {} STRING",
+                    operator
+                )))
+            }
+        }
+    }
+
     fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
         match right {
             object::Object::Boolean(value) => return Some(Evaluator::eval_boolean(!value)),
@@ -272,6 +306,7 @@ impl Evaluator {
             _ => Some(object::FALSE),
         }
     }
+
     fn eval_boolean(value: bool) -> object::Object {
         if value {
             return object::TRUE;
@@ -376,6 +411,7 @@ mod evaluator_tests {
         counted_array!(
             let tests: [(&str, &str); _] = [
                 ("\"Hello World!\"", "Hello World!"),
+                ("\"Hello\" + \" \" + \"World!\"", "Hello World!"),
             ]
         );
 
@@ -412,6 +448,9 @@ mod evaluator_tests {
                 ("(1 < 2) == false", false),
                 ("(1 > 2) == true", false),
                 ("(1 > 2) == false", true),
+                ("\"Hello\" == \"Hello\"", true),
+                ("\"Hello\" == \"World\"", false),
+
             ]
         );
 
@@ -504,6 +543,7 @@ mod evaluator_tests {
                     return 1
                 }", "unknown operator: -BOOLEAN"),
                 ("foobar", "identifier not found: foobar"),
+                ("\"Hello\" - \"World\"", "unknown operator: STRING - STRING"),
             ]
         );
 
@@ -595,11 +635,11 @@ mod evaluator_tests {
         match obj {
             object::Object::Boolean(value) => {
                 if value != expected {
-                    return false;
+                    panic!("{} is not match to {}", value, expected);
                 }
                 return true;
             }
-            _ => return false,
+            _ => panic!("{} is not integer object.", obj),
         }
     }
 
