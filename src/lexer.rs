@@ -9,9 +9,9 @@ pub struct Lexer {
 
 #[allow(dead_code)]
 impl Lexer {
-    pub fn new(input: String) -> Lexer {
+    pub fn new(input: &str) -> Lexer {
         let mut l = Lexer {
-            input,
+            input: input.to_string(),
             position: 0,
             read_position: 0,
             ch: 'a',
@@ -166,7 +166,7 @@ mod lexer_tests {
             ]
         );
 
-        let mut l = Lexer::new(input);
+        let mut l = Lexer::new(&input);
 
         for (token_type, literal) in tests {
             let tok = l.next_token();
@@ -283,7 +283,7 @@ if (5 < 10) {
             ]
         );
 
-        let mut l = Lexer::new(input);
+        let mut l = Lexer::new(&input);
 
         for (token_type, literal) in tests {
             let tok = l.next_token();

@@ -60,7 +60,7 @@ impl Parser {
 
     fn peek_error(&mut self, t: token::TokenType) {
         self.errors.push(String::from(format!(
-            "\nexpected next token to be {:?}, got {:?} instead.",
+            "\r\nexpected next token to be {:?}, got {:?} instead.",
             t, self.peek_token.token_type
         )))
     }
@@ -156,6 +156,10 @@ impl Parser {
                 statements.push(stmt);
             }
             self.next_token();
+        }
+
+        if self.cur_token_is(&token::TokenType::EOF) {
+            return None;
         }
 
         return Some(ast::Statement::BlockStatement { statements });
@@ -327,7 +331,7 @@ impl Parser {
                                     };
                                     return Some(expression);
                                 }
-                                None => return None,
+                                None => return Some(ast::Expression::NeedNext),
                             }
                         }
 
@@ -338,7 +342,7 @@ impl Parser {
                         };
                         return Some(expression);
                     }
-                    None => return None,
+                    None => return Some(ast::Expression::NeedNext),
                 }
             }
             None => return None,
@@ -361,7 +365,7 @@ impl Parser {
                             body: Box::new(body),
                         })
                     }
-                    None => return None,
+                    None => return Some(ast::Expression::NeedNext),
                 }
             }
             None => return None,
@@ -481,7 +485,7 @@ let foobar = 838383;
         "
         .to_string();
 
-        let l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(&input);
         let mut p = Parser::new(l);
 
         counted_array!(
@@ -511,7 +515,7 @@ return 993322;
         "
         .to_string();
 
-        let l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(&input);
         let mut p = Parser::new(l);
 
         let program = p.parse_program();
@@ -533,7 +537,7 @@ return 993322;
     fn test_identifier_expression() {
         let input = "foobar;".to_string();
 
-        let l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(&input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parser_errors(p);
@@ -559,7 +563,7 @@ return 993322;
     fn test_integer_literal_expression() {
         let input = "5;".to_string();
 
-        let l = lexer::Lexer::new(input);
+        let l = lexer::Lexer::new(&input);
         let mut p = Parser::new(l);
         let program = p.parse_program();
         check_parser_errors(p);
@@ -592,7 +596,7 @@ return 993322;
         );
 
         for t in prefix_tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
 
@@ -630,7 +634,7 @@ return 993322;
             ]
         );
         for t in infix_tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
 
@@ -666,36 +670,36 @@ return 993322;
     fn test_operator_precedence_parsing() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("a + b / c - d", "((a + (b / c)) - d)\n"),
-                ("-a + b", "((-a) + b)\n"),
-                ("!-a", "(!(-a))\n"),
-                ("a + b + c", "((a + b) + c)\n"),
-                ("a + b - c", "((a + b) - c)\n"),
-                ("a * b * c", "((a * b) * c)\n"),
-                ("a * b / c", "((a * b) / c)\n"),
-                ("a + b / c", "(a + (b / c))\n"),
-                ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)\n"),
-                ("3 + 4; -5 * 5", "(3 + 4)\n((-5) * 5)\n"),
-                ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))\n"),
-                ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))\n"),
-                ("3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))\n"),
-                ("true", "true\n"),
-                ("false", "false\n"),
-                ("3 > 5 == false", "((3 > 5) == false)\n"),
-                ("3 < 5 == true", "((3 < 5) == true)\n"),
-                ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)\n"),
-                ("(5 + 5) * 2", "((5 + 5) * 2)\n"),
-                ("2 / (5 + 5)", "(2 / (5 + 5))\n"),
-                ("-(5 + 5)", "(-(5 + 5))\n"),
-                ("!(true == true)", "(!(true == true))\n"),
-                ("a + add(b * c) + d", "((a + add((b * c))) + d)\n"),
-                ("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))\n"),
-                ("add(a + b + c * d / f + g)", "add((((a + b) + ((c * d) / f)) + g))\n"),
+                ("a + b / c - d", "((a + (b / c)) - d)\r\n"),
+                ("-a + b", "((-a) + b)\r\n"),
+                ("!-a", "(!(-a))\r\n"),
+                ("a + b + c", "((a + b) + c)\r\n"),
+                ("a + b - c", "((a + b) - c)\r\n"),
+                ("a * b * c", "((a * b) * c)\r\n"),
+                ("a * b / c", "((a * b) / c)\r\n"),
+                ("a + b / c", "(a + (b / c))\r\n"),
+                ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)\r\n"),
+                ("3 + 4; -5 * 5", "(3 + 4)\r\n((-5) * 5)\r\n"),
+                ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))\r\n"),
+                ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))\r\n"),
+                ("3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))\r\n"),
+                ("true", "true\r\n"),
+                ("false", "false\r\n"),
+                ("3 > 5 == false", "((3 > 5) == false)\r\n"),
+                ("3 < 5 == true", "((3 < 5) == true)\r\n"),
+                ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)\r\n"),
+                ("(5 + 5) * 2", "((5 + 5) * 2)\r\n"),
+                ("2 / (5 + 5)", "(2 / (5 + 5))\r\n"),
+                ("-(5 + 5)", "(-(5 + 5))\r\n"),
+                ("!(true == true)", "(!(true == true))\r\n"),
+                ("a + add(b * c) + d", "((a + add((b * c))) + d)\r\n"),
+                ("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))\r\n"),
+                ("add(a + b + c * d / f + g)", "add((((a + b) + ((c * d) / f)) + g))\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);
@@ -709,15 +713,15 @@ return 993322;
     fn test_boolean() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("true;", "true\n"),
-                ("false;", "false\n"),
-                ("let foobar = true;", "let foobar = true;\n"),
-                ("let barfoo = false", "let barfoo = false;\n"),
+                ("true;", "true\r\n"),
+                ("false;", "false\r\n"),
+                ("let foobar = true;", "let foobar = true;\r\n"),
+                ("let barfoo = false", "let barfoo = false;\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);
@@ -731,13 +735,13 @@ return 993322;
     fn test_if_expression() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("if (x < y) { x }", "if ((x < y)) {\n\tx\n}\n"),
-                ("if (x < y) { x } else { y }", "if ((x < y)) {\n\tx\n} else {\n\ty\n}\n"),
+                ("if (x < y) { x }", "if ((x < y)) {\r\n\tx\r\n}\r\n"),
+                ("if (x < y) { x } else { y }", "if ((x < y)) {\r\n\tx\r\n} else {\r\n\ty\r\n}\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);
@@ -751,12 +755,12 @@ return 993322;
     fn test_string_literal_expression() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("\"Hello World!\"", "\"Hello World!\"\n"),
+                ("\"Hello World!\"", "\"Hello World!\"\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);
@@ -770,14 +774,14 @@ return 993322;
     fn test_function_parameter_parsing() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("fn() {};", "fn () {\n}\n"),
-                ("fn(x) {};", "fn (x) {\n}\n"),
-                ("fn(x, y, z) {};", "fn (x, y, z) {\n}\n"),
+                ("fn() {};", "fn () {\r\n}\r\n"),
+                ("fn(x) {};", "fn (x) {\r\n}\r\n"),
+                ("fn(x, y, z) {};", "fn (x, y, z) {\r\n}\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);
@@ -791,14 +795,14 @@ return 993322;
     fn test_call_function() {
         counted_array!(
             let tests: [(&str, &str); _] = [
-                ("add()", "add()\n"),
-                ("sum(x);", "sum(x)\n"),
-                ("get(x, y, z)", "get(x, y, z)\n"),
+                ("add()", "add()\r\n"),
+                ("sum(x);", "sum(x)\r\n"),
+                ("get(x, y, z)", "get(x, y, z)\r\n"),
             ]
         );
 
         for t in tests {
-            let l = lexer::Lexer::new(t.0.to_string());
+            let l = lexer::Lexer::new(t.0);
             let mut p = Parser::new(l);
             let program = p.parse_program();
             check_parser_errors(p);

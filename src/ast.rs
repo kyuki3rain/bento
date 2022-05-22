@@ -5,11 +5,21 @@ pub struct Program {
     pub statements: Vec<Statement>,
 }
 
+impl Program {
+    pub fn need_next(&self) -> bool {
+        if let Some(stmt) = self.statements.last() {
+            return stmt.need_next();
+        } else {
+            return false;
+        };
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = "".to_string();
         for stmt in &self.statements {
-            s += &format!("{}\n", stmt);
+            s += &format!("{}\r\n", stmt);
         }
 
         return write!(f, "{}", s);
@@ -22,6 +32,20 @@ pub enum Statement {
     ReturnStatement { return_value: Expression },
     ExpressionStatement { expression: Expression },
     BlockStatement { statements: Vec<Statement> },
+}
+
+impl Statement {
+    pub fn need_next(&self) -> bool {
+        match self {
+            Statement::LetStatement { name: _, value } => value.need_next(),
+
+            Statement::ReturnStatement { return_value } => return_value.need_next(),
+            Statement::ExpressionStatement { expression } => expression.need_next(),
+            Statement::BlockStatement { statements } => {
+                statements.iter().any(|statement| statement.need_next())
+            }
+        }
+    }
 }
 
 impl fmt::Display for Statement {
@@ -37,9 +61,9 @@ impl fmt::Display for Statement {
             Statement::BlockStatement { statements } => {
                 let mut s = "".to_string();
                 for stmt in statements {
-                    s += &format!("\t{}\n", stmt);
+                    s += &format!("\t{}\r\n", stmt);
                 }
-                return write!(f, "{{\n{}}}", s);
+                return write!(f, "{{\r\n{}}}", s);
             }
         }
     }
@@ -81,6 +105,16 @@ pub enum Expression {
         function: Box<Expression>,
         arguments: Vec<Expression>,
     },
+    NeedNext,
+}
+
+impl Expression {
+    fn need_next(&self) -> bool {
+        match self {
+            Expression::NeedNext => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Expression {
@@ -133,6 +167,7 @@ impl fmt::Display for Expression {
                 }
                 return write!(f, "{}({})", function, s);
             }
+            Expression::NeedNext => return write!(f, ""),
         }
     }
 }
@@ -154,6 +189,6 @@ mod ast_tests {
             }],
         };
 
-        assert_eq!(format!("{}", program), "let myVar = anotherVar;\n");
+        assert_eq!(format!("{}", program), "let myVar = anotherVar;\r\n");
     }
 }
