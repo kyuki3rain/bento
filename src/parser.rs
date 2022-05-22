@@ -189,6 +189,7 @@ impl Parser {
         match self.cur_token.token_type {
             token::TokenType::IDENT => return Some(self.parse_identifier()),
             token::TokenType::INT => return self.parse_integer_literal(),
+            token::TokenType::STRING => return self.parse_string_literal(),
             token::TokenType::BANG => return self.parse_prefix_expression(),
             token::TokenType::MINUS => return self.parse_prefix_expression(),
             token::TokenType::TRUE => return Some(self.parse_boolean()),
@@ -383,6 +384,12 @@ impl Parser {
             ));
             return None;
         }
+    }
+
+    fn parse_string_literal(&mut self) -> Option<ast::Expression> {
+        return Some(ast::Expression::StringLiteral {
+            value: self.cur_token.literal.clone(),
+        });
     }
 
     fn parse_boolean(&mut self) -> ast::Expression {
@@ -726,6 +733,25 @@ return 993322;
             let tests: [(&str, &str); _] = [
                 ("if (x < y) { x }", "if ((x < y)) {\n\tx\n}\n"),
                 ("if (x < y) { x } else { y }", "if ((x < y)) {\n\tx\n} else {\n\ty\n}\n"),
+            ]
+        );
+
+        for t in tests {
+            let l = lexer::Lexer::new(t.0.to_string());
+            let mut p = Parser::new(l);
+            let program = p.parse_program();
+            check_parser_errors(p);
+
+            let actual = format!("{}", program);
+            assert_eq!(actual, t.1);
+        }
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        counted_array!(
+            let tests: [(&str, &str); _] = [
+                ("\"Hello World!\"", "\"Hello World!\"\n"),
             ]
         );
 

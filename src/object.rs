@@ -6,6 +6,7 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub enum Object {
     Integer(i64),
+    String(String),
     Boolean(bool),
     Return(Box<Object>),
     Error(String),
@@ -21,6 +22,7 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Object::Integer(_) => return write!(f, "INTEGER"),
+            Object::String(_) => return write!(f, "STRING"),
             Object::Boolean(_) => return write!(f, "BOOLEAN"),
             Object::Return(_) => return write!(f, "RETURN"),
             Object::Error(_) => return write!(f, "ERROR"),
@@ -38,6 +40,7 @@ impl Object {
     pub fn string(&self) -> String {
         match self {
             Object::Integer(value) => return format!("{}", value),
+            Object::String(value) => return format!("\"{}\"", value),
             Object::Boolean(value) => return format!("{}", value),
             Object::Return(value) => return format!("{}", value),
             Object::Error(value) => return format!("{}", value),

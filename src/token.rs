@@ -8,6 +8,7 @@ pub enum TokenType {
 
     IDENT,
     INT,
+    STRING,
 
     ASSIGN,
     PLUS,
