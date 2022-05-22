@@ -11,6 +11,7 @@ pub enum Object {
     Return(Box<Object>),
     Error(String),
     Builtin(fn(Vec<Object>) -> Object),
+    Array(Vec<Object>),
     Function {
         parameters: Vec<ast::Expression>,
         body: ast::Statement,
@@ -28,6 +29,7 @@ impl fmt::Display for Object {
             Object::Return(_) => return write!(f, "RETURN"),
             Object::Error(_) => return write!(f, "ERROR"),
             Object::Builtin(_) => return write!(f, "BUILTIN"),
+            Object::Array(_) => return write!(f, "ARRAY"),
             Object::Function {
                 parameters: _,
                 body: _,
@@ -47,6 +49,14 @@ impl Object {
             Object::Return(value) => return format!("{}", value),
             Object::Error(value) => return format!("{}", value),
             Object::Builtin(_) => return format!("builtin-functions"),
+            Object::Array(array) => {
+                let mut s = "[".to_string();
+                for object in array {
+                    s += &format!("{}, ", object.string());
+                }
+                s += "]";
+                return s;
+            }
             Object::Function {
                 parameters,
                 body,

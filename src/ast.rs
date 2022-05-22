@@ -92,6 +92,13 @@ pub enum Expression {
     Boolean {
         value: bool,
     },
+    ArrayLiteral {
+        elements: Vec<Expression>,
+    },
+    IndexExpression {
+        left: Box<Expression>,
+        index: Box<Expression>,
+    },
     IfExpression {
         condition: Box<Expression>,
         consequence: Box<Statement>,
@@ -134,6 +141,20 @@ impl fmt::Display for Expression {
                 return write!(f, "({} {} {})", left, operator, right);
             }
             Expression::Boolean { value } => return write!(f, "{}", value),
+            Expression::ArrayLiteral { elements } => {
+                let mut s = "".to_string();
+                for (i, p) in elements.iter().enumerate() {
+                    if i == 0 {
+                        s += &format!("{}", p);
+                    } else {
+                        s += &format!(", {}", p);
+                    }
+                }
+                return write!(f, "[{}]", s);
+            }
+            Expression::IndexExpression { left, index } => {
+                return write!(f, "({})[{}]", left, index);
+            }
             Expression::IfExpression {
                 condition,
                 consequence,

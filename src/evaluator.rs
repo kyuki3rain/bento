@@ -118,6 +118,19 @@ impl Evaluator {
                 None => return None,
             },
             ast::Expression::Boolean { value } => return Some(Evaluator::eval_boolean(value)),
+            ast::Expression::ArrayLiteral { elements } => {
+                let elms = self.eval_expressions(elements);
+                if elms.len() == 1 && Evaluator::is_error(&elms[0]) {
+                    return Some(elms[0].clone());
+                }
+                return Some(object::Object::Array(elms));
+            }
+            ast::Expression::IndexExpression { left, index } => {
+                let left = self.eval_expression(*left)?;
+                let index = self.eval_expression(*index)?;
+
+                return Evaluator::eval_index_expression(left, index);
+            }
             ast::Expression::IfExpression {
                 condition,
                 consequence,
@@ -147,6 +160,30 @@ impl Evaluator {
             ast::Expression::NeedNext => return None,
         }
     }
+
+    fn eval_index_expression(
+        left: object::Object,
+        index: object::Object,
+    ) -> Option<object::Object> {
+        if let object::Object::Array(elements) = left {
+            if let object::Object::Integer(i) = index {
+                return Evaluator::eval_array_index_expression(elements, i);
+            }
+        }
+
+        return Some(object::Object::Error(format!("")));
+    }
+
+    fn eval_array_index_expression(
+        elements: Vec<object::Object>,
+        i: i64,
+    ) -> Option<object::Object> {
+        if i < 0 || i > elements.len() as i64 - 1 {
+            return Some(object::Object::Error(format!("list index out of range")));
+        }
+        return Some(elements[i as usize].clone());
+    }
+
     fn apply_function(
         &mut self,
         func: object::Object,
@@ -552,6 +589,8 @@ mod evaluator_tests {
                 ("\"Hello\" - \"World\"", "unknown operator: STRING - STRING"),
                 ("len(1)", "argument to `len` not supported, got INTEGER"),
                 ("len(\"one\", \"two\")",  "wrong number of arguments. got=2, want=1"),
+                ("[1, 2, 3][3]", "list index out of range"),
+                ("[1, 2, 3][-1]", "list index out of range"),
             ]
         );
 
@@ -616,6 +655,22 @@ mod evaluator_tests {
     }
 
     #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]".to_string();
+
+        let evaluated = test_eval(input);
+        if let object::Object::Array(elements) = evaluated {
+            if elements.len() != 3 {
+                panic!("array has wrong num of elements. got={}", elements.len());
+            }
+
+            test_integer_object(elements[0].clone(), 1);
+            test_integer_object(elements[1].clone(), 4);
+            test_integer_object(elements[2].clone(), 6);
+        }
+    }
+
+    #[test]
     fn test_builtin_functions() {
         counted_array!(
             let tests: [(&str, i64); _] = [
@@ -627,7 +682,28 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            println!("{}", evaluated.string());
+            test_integer_object(evaluated, t.1);
+        }
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        counted_array!(
+            let tests: [(&str, i64); _] = [
+                ("[1,2,3][0]", 1),
+                ("[1,2,3][1]", 2),
+                ("[1,2,3][2]", 3),
+                ("let i = 0; [1][i];", 1),
+                ("[1, 2, 3][1 + 1]", 3),
+                ("let myArray = [1, 2, 3]; myArray[2];", 3),
+                ("let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", 6),
+                ("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];", 2),
+            ]
+        );
+
+        for t in tests {
+            println!("{}", t.0);
+            let evaluated = test_eval(t.0.to_string());
             test_integer_object(evaluated, t.1);
         }
     }
