@@ -1,4 +1,3 @@
-extern crate termion;
 #[macro_use]
 #[cfg(test)]
 extern crate counted_array;
@@ -14,5 +13,6 @@ mod repl;
 mod token;
 
 fn main() {
-    repl::start();
+    let mut r = repl::Repl::new();
+    r.start();
 }
