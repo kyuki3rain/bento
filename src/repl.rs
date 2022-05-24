@@ -4,7 +4,7 @@ use super::{evaluator, lexer, object, parser};
 use std::cell::RefCell;
 use std::io::{stdin, stdout, Write};
 use termion::cursor::DetectCursorPos;
-use termion::event::{Event, Key};
+use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
@@ -39,24 +39,24 @@ impl Repl {
         self.fetch_cursor_position(&mut stdout);
         self.disp(&mut stdout);
 
-        for c in stdin.events() {
+        for c in stdin.keys() {
             self.fetch_cursor_position(&mut stdout);
             let evt = c.unwrap();
             match evt {
-                Event::Key(Key::Char('\n')) => {
+                Key::Char('\n') => {
                     let (f, _) = self.enter(&mut stdout);
                     if f {
                         return;
                     }
                     self.cur_x = 5;
                 }
-                Event::Key(Key::Left) => {
+                Key::Left => {
                     if self.cur_x > 5 {
                         write!(stdout, "{}", termion::cursor::Left(1));
                         self.fetch_cursor_position(&mut stdout);
                     }
                 }
-                Event::Key(Key::Right) => {
+                Key::Right => {
                     if self.cur_x
                         < 5 + self.view[(self.cur_y - self.row_offset) as usize].len() as u16
                     {
@@ -64,12 +64,20 @@ impl Repl {
                         self.fetch_cursor_position(&mut stdout);
                     }
                 }
-                Event::Key(Key::Char(value)) => {
+                Key::Char(value) => {
                     self.view[(self.cur_y - self.row_offset) as usize]
                         .insert((self.cur_x - 5) as usize, value);
                     self.cur_x += 1;
                 }
-                Event::Key(Key::Ctrl('c')) => {
+                Key::Backspace => {
+                    if self.cur_x > 5 {
+                        self.view[(self.cur_y - self.row_offset) as usize]
+                            .remove((self.cur_x - 6) as usize);
+                        self.cur_x -= 1;
+                    }
+                }
+                Key::Ctrl('c') => {
+                    write!(stdout, "\r\n");
                     self.view = vec![vec![]];
                     self.cur_x = 5;
                 }

@@ -1,7 +1,15 @@
 let a = 10;
 let b = 11;
 let add = fn(x,y){
-    a + b
+    a + b;
 };
+let reduce = fn(x, y) {
+    a - b;
+}
 add(a, b);
 add(a, add(a, add(a, b)));
+if(a == 12) {
+    add(a, b);
+} else {
+    reduce(a, b);
+}
