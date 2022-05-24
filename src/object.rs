@@ -1,4 +1,4 @@
-use super::{ast, environment};
+use super::{ast, environment, evaluator};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ pub enum Object {
     Boolean(bool),
     Return(Box<Object>),
     Error(String),
-    Builtin(fn(Vec<Object>) -> Object),
+    Builtin(fn(Vec<Object>, &mut evaluator::Evaluator) -> Object),
     Array(Vec<Object>),
     Function {
         parameters: Vec<ast::Expression>,

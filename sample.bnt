@@ -1,0 +1,7 @@
+let a = 10;
+let b = 11;
+let add = fn(x,y){
+    a + b
+};
+add(a, b);
+add(a, add(a, add(a, b)));

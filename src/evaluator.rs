@@ -218,7 +218,7 @@ impl Evaluator {
                 self.env = current_env;
                 return None;
             }
-            object::Object::Builtin(function) => Some(function(args)),
+            object::Object::Builtin(function) => Some(function(args, self)),
             _ => None,
         }
     }
