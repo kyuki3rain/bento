@@ -11,7 +11,28 @@ pub fn new_builtins() -> HashMap<String, Object> {
     builtins.insert(String::from("rest"), Object::Builtin(bento_rest));
     builtins.insert(String::from("push"), Object::Builtin(bento_push));
     builtins.insert(String::from("import"), Object::Builtin(bento_import));
+    builtins.insert(String::from("exit"), Object::Builtin(bento_exit));
     builtins
+}
+
+fn bento_exit(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+    if args.len() > 1 {
+        return Object::Error(format!(
+            "wrong number of arguments. got={}, want=1",
+            args.len()
+        ));
+    }
+
+    if args.len() == 0 {
+        return object::Object::Exit(0);
+    }
+
+    match &args[0] {
+        Object::Integer(i) => {
+            return object::Object::Exit(*i as i32);
+        }
+        o => Object::Error(format!("argument to `len` not supported, got {}", o)),
+    }
 }
 
 fn bento_import(args: Vec<Object>, eval: &mut evaluator::Evaluator) -> Object {

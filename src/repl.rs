@@ -1,6 +1,6 @@
 extern crate termion;
 
-use super::{evaluator, lexer, parser};
+use super::{evaluator, lexer, object, parser};
 use std::cell::RefCell;
 use std::io::{stdin, stdout, Write};
 use termion::cursor::DetectCursorPos;
@@ -28,14 +28,13 @@ impl Repl {
             commands,
             view,
             row_offset: 0,
-            cur_x: 0,
+            cur_x: 5,
             cur_y: 0,
         };
     }
 
     pub fn start(&mut self) {
         let mut stdout = stdout().into_raw_mode().unwrap();
-
         let stdin = stdin();
         self.fetch_cursor_position(&mut stdout);
         self.disp(&mut stdout);
@@ -45,14 +44,34 @@ impl Repl {
             let evt = c.unwrap();
             match evt {
                 Event::Key(Key::Char('\n')) => {
-                    self.enter(&mut stdout);
+                    let (f, _) = self.enter(&mut stdout);
+                    if f {
+                        return;
+                    }
+                    self.cur_x = 5;
+                }
+                Event::Key(Key::Left) => {
+                    if self.cur_x > 5 {
+                        write!(stdout, "{}", termion::cursor::Left(1));
+                        self.fetch_cursor_position(&mut stdout);
+                    }
+                }
+                Event::Key(Key::Right) => {
+                    if self.cur_x
+                        < 5 + self.view[(self.cur_y - self.row_offset) as usize].len() as u16
+                    {
+                        write!(stdout, "{}", termion::cursor::Right(1));
+                        self.fetch_cursor_position(&mut stdout);
+                    }
                 }
                 Event::Key(Key::Char(value)) => {
                     self.view[(self.cur_y - self.row_offset) as usize]
                         .insert((self.cur_x - 5) as usize, value);
+                    self.cur_x += 1;
                 }
                 Event::Key(Key::Ctrl('c')) => {
-                    return;
+                    self.view = vec![vec![]];
+                    self.cur_x = 5;
                 }
                 _ => {}
             }
@@ -62,7 +81,7 @@ impl Repl {
 
     pub fn fetch_cursor_position<T: Write>(&mut self, out: &mut T) {
         let (x, y) = out.cursor_pos().unwrap();
-        self.cur_x = x;
+        self.cur_x = if x >= 5 { x } else { 5 };
         self.cur_y = y;
         self.row_offset = y - self.view.len() as u16 + 1;
     }
@@ -79,7 +98,7 @@ impl Repl {
         return input;
     }
 
-    pub fn enter<T: Write>(&mut self, out: &mut T) {
+    pub fn enter<T: Write>(&mut self, out: &mut T) -> (bool, i32) {
         let input = self.get_command();
 
         let l = lexer::Lexer::new(&input);
@@ -87,7 +106,7 @@ impl Repl {
         let program = p.parse_program();
         if program.need_next() {
             self.view.push(vec![]);
-            return;
+            return (false, 0);
         }
 
         write!(out, "\r\n");
@@ -99,6 +118,9 @@ impl Repl {
         } else {
             match self.evaluator.borrow_mut().eval_program(program) {
                 Some(evaluated) => {
+                    if let object::Object::Exit(i) = evaluated {
+                        return (true, i);
+                    }
                     write!(out, "{}\r\n", evaluated.string()).unwrap();
                     self.commands.push(input);
                 }
@@ -108,6 +130,8 @@ impl Repl {
 
         self.view = vec![vec![]];
         self.fetch_cursor_position(out);
+
+        (false, 0)
     }
 
     pub fn disp<T: Write>(&self, out: &mut T) {
@@ -128,6 +152,7 @@ impl Repl {
                 write!(out, "{}", c).unwrap();
             }
         }
+        write!(out, "{}", termion::cursor::Goto(self.cur_x, self.cur_y),).unwrap();
         out.flush().unwrap();
     }
 }

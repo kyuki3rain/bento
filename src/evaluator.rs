@@ -17,18 +17,7 @@ impl Evaluator {
     }
 
     pub fn eval_program(&mut self, program: ast::Program) -> Option<object::Object> {
-        let mut result = None;
-        for stmt in program.statements {
-            result = self.eval_statement(stmt);
-            if let Some(r) = result {
-                match r {
-                    object::Object::Return(value) => return Some(*value),
-                    object::Object::Error(value) => return Some(object::Object::Error(value)),
-                    _ => result = Some(r),
-                }
-            }
-        }
-        return result;
+        self.eval_block_statement(program.statements)
     }
     fn eval_block_statement(&mut self, statements: Vec<ast::Statement>) -> Option<object::Object> {
         let mut result = None;
@@ -37,6 +26,7 @@ impl Evaluator {
             if let Some(r) = result {
                 match r {
                     object::Object::Return(value) => return Some(object::Object::Return(value)),
+                    object::Object::Exit(i) => return Some(object::Object::Exit(i)),
                     object::Object::Error(value) => return Some(object::Object::Error(value)),
                     _ => result = Some(r),
                 }

@@ -18,6 +18,7 @@ pub enum Object {
         env: Rc<RefCell<environment::Environment>>,
     },
     Null,
+    Exit(i32),
 }
 
 impl fmt::Display for Object {
@@ -36,6 +37,7 @@ impl fmt::Display for Object {
                 env: _,
             } => return write!(f, "FUNCTION"),
             Object::Null => return write!(f, "NULL"),
+            Object::Exit(_) => return write!(f, "Exit"),
         }
     }
 }
@@ -74,6 +76,7 @@ impl Object {
                 return format!("fn({}) {}", s, body);
             }
             Object::Null => return "NULL".to_string(),
+            Object::Exit(_) => return "Exit".to_string(),
         }
     }
 }
