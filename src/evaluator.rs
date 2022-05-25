@@ -188,6 +188,13 @@ impl Evaluator {
                 let current_env = Rc::clone(&self.env);
                 let mut extended_env =
                     environment::Environment::new_enclosed_environment(Rc::clone(&env));
+                if args.len() != parameters.len() {
+                    return Some(object::Object::Error(format!(
+                        "wrong number argument. got={}, expected={}",
+                        args.len(),
+                        parameters.len()
+                    )));
+                }
                 for (i, p) in parameters.iter().enumerate() {
                     match p {
                         ast::Expression::Identifier { value } => {

@@ -1,6 +1,6 @@
 let a = 10;
 let b = 11;
-let add = fn(x,y){
+let add = fn(x, y){
     a + b;
 };
 let reduce = fn(x, y) {
@@ -8,7 +8,7 @@ let reduce = fn(x, y) {
 }
 add(a, b);
 add(a, add(a, add(a, b)));
-if(a == 12) {
+if(a == 10) {
     add(a, b);
 } else {
     reduce(a, b);
