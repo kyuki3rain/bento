@@ -27,6 +27,7 @@ I created the document with reference to [Writing An Interpreter In Go][writing-
 - [Variable bindings](#variable-bindings)
 - [Literals](#literals)
     - [Integer](#integer)
+    - [Float](#float)
     - [Boolean](#boolean)
     - [String](#string)
     - [Array](#array)
@@ -142,7 +143,11 @@ Five types of literals are implemented.
 
 #### Integer
 
-`Integer` represents an integer value. Floating point numbers can not be handled.
+`Integer` represents an integer value.
+
+#### Float
+
+`Float` represents an float value.
 
 **Format:**
 
