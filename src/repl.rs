@@ -1,6 +1,6 @@
 extern crate termion;
 
-use super::{evaluator, lexer, parser};
+use super::{evaluator, lexer, object, parser};
 use std::cell::RefCell;
 use std::cmp;
 use std::io::{stdin, stdout, Write};
@@ -195,7 +195,10 @@ impl Repl {
         } else {
             match self.evaluator.borrow_mut().eval_program(program) {
                 Some(evaluated) => {
-                    output += &evaluated.string();
+                    if let object::Object::Null = evaluated {
+                    } else {
+                        output += &evaluated.string();
+                    }
                 }
                 None => output += "cannot evaluate error!",
             }

@@ -70,6 +70,7 @@ impl Lexer {
             '[' => token::new_token(token::TokenType::LBRACKET, self.ch.to_string()),
             ']' => token::new_token(token::TokenType::RBRACKET, self.ch.to_string()),
             '"' => token::new_token(token::TokenType::STRING, self.read_string()),
+            ':' => token::new_token(token::TokenType::COLON, self.ch.to_string()),
             '\0' => token::Token {
                 token_type: token::TokenType::EOF,
                 literal: String::from(""),
@@ -203,6 +204,7 @@ if (5 < 10) {
 \"foobar\"
 \"foo bar\"
 [1, 2];
+{\"foo\": \"bar\"}
         ",
         );
         counted_array!(
@@ -288,6 +290,11 @@ if (5 < 10) {
                 (token::TokenType::INT, "2"),
                 (token::TokenType::RBRACKET, "]"),
                 (token::TokenType::SEMICOLON, ";"),
+                (token::TokenType::LBRACE, "{"),
+                (token::TokenType::STRING, "foo"),
+                (token::TokenType::COLON, ":"),
+                (token::TokenType::STRING, "bar"),
+                (token::TokenType::RBRACE, "}"),
                 (token::TokenType::EOF, ""),
             ]
         );

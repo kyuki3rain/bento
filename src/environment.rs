@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Environment {
     store: HashMap<String, object::Object>,
     outer: Option<Rc<RefCell<Environment>>>,

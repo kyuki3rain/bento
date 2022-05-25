@@ -112,6 +112,9 @@ pub enum Expression {
         function: Box<Expression>,
         arguments: Vec<Expression>,
     },
+    HashLiteral {
+        pairs: Vec<(Expression, Expression)>,
+    },
     NeedNext,
 }
 
@@ -187,6 +190,18 @@ impl fmt::Display for Expression {
                     }
                 }
                 return write!(f, "{}({})", function, s);
+            }
+            Expression::HashLiteral { pairs } => {
+                let mut s = "{ ".to_string();
+                for (i, (key, value)) in pairs.iter().enumerate() {
+                    if i == 0 {
+                        s += &format!("{}: {}", key, value);
+                    } else {
+                        s += &format!(", {}: {}", key, value);
+                    }
+                }
+                s += " }";
+                return write!(f, "{}", s);
             }
             Expression::NeedNext => return write!(f, ""),
         }

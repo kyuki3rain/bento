@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+#[derive(PartialEq)]
 pub struct Evaluator {
     env: Rc<RefCell<environment::Environment>>,
     builtin: HashMap<String, object::Object>,
@@ -17,8 +18,13 @@ impl Evaluator {
     }
 
     pub fn eval_program(&mut self, program: ast::Program) -> Option<object::Object> {
-        self.eval_block_statement(program.statements)
+        match self.eval_block_statement(program.statements) {
+            Some(object::Object::Return(value)) => return Some(*value),
+            Some(r) => return Some(r),
+            None => return None,
+        }
     }
+
     fn eval_block_statement(&mut self, statements: Vec<ast::Statement>) -> Option<object::Object> {
         let mut result = None;
         for stmt in statements {
@@ -119,6 +125,13 @@ impl Evaluator {
                 let left = self.eval_expression(*left)?;
                 let index = self.eval_expression(*index)?;
 
+                if Evaluator::is_error(&left) {
+                    return Some(left);
+                }
+                if Evaluator::is_error(&index) {
+                    return Some(index);
+                }
+
                 return Evaluator::eval_index_expression(left, index);
             }
             ast::Expression::IfExpression {
@@ -138,6 +151,9 @@ impl Evaluator {
                 arguments,
             } => {
                 if let Some(func) = self.eval_expression(*function) {
+                    if Evaluator::is_error(&func) {
+                        return Some(func);
+                    }
                     let args = self.eval_expressions(arguments);
                     if args.len() == 1 && Evaluator::is_error(&args[0]) {
                         return Some(args[0].clone());
@@ -146,6 +162,27 @@ impl Evaluator {
                 } else {
                     return None;
                 }
+            }
+            ast::Expression::HashLiteral { pairs } => {
+                let mut hash = HashMap::new();
+
+                for (key_expr, value_expr) in pairs {
+                    if let Some(key) = self.eval_expression(key_expr) {
+                        if Self::is_error(&key) {
+                            return Some(key);
+                        }
+                        if let Some(value) = self.eval_expression(value_expr) {
+                            if Evaluator::is_error(&value) {
+                                return Some(value);
+                            }
+                            hash.insert(key, value);
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+
+                Some(object::Object::Hash(hash))
             }
             ast::Expression::NeedNext => return None,
         }
@@ -158,6 +195,10 @@ impl Evaluator {
         if let object::Object::Array(elements) = left {
             if let object::Object::Integer(i) = index {
                 return Evaluator::eval_array_index_expression(elements, i);
+            }
+        } else if let object::Object::Hash(hash) = left {
+            if let Some(obj) = hash.get(&index) {
+                return Some(obj.clone());
             }
         }
 
@@ -215,7 +256,7 @@ impl Evaluator {
                 self.env = current_env;
                 return None;
             }
-            object::Object::Builtin(function) => Some(function(args, self)),
+            object::Object::Builtin(object::BuiltinFunc(_, function)) => Some(function(args, self)),
             _ => None,
         }
     }
@@ -699,9 +740,54 @@ mod evaluator_tests {
         );
 
         for t in tests {
-            println!("{}", t.0);
             let evaluated = test_eval(t.0.to_string());
             test_integer_object(evaluated, t.1);
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let input = "let two = \"two\";
+        {
+            \"one\": 10 - 9,
+            two: 1 + 1,
+            \"thr\" + \"ee\": 6 / 2,
+            4: 4,
+            true: 5,
+            false: 6,
+        }";
+
+        let keys = vec![
+            object::Object::String(String::from("one")),
+            object::Object::String(String::from("two")),
+            object::Object::String(String::from("three")),
+            object::Object::Integer(4),
+            object::Object::Boolean(true),
+            object::Object::Boolean(false),
+        ];
+
+        let values = vec![
+            object::Object::Integer(1),
+            object::Object::Integer(2),
+            object::Object::Integer(3),
+            object::Object::Integer(4),
+            object::Object::Integer(5),
+            object::Object::Integer(6),
+        ];
+
+        let evaluated = test_eval(input.to_string());
+        if let object::Object::Hash(hash) = evaluated {
+            for (i, key) in keys.iter().enumerate() {
+                if let Some(value) = hash.get(&key) {
+                    if value != &values[i] {
+                        panic!();
+                    }
+                } else {
+                    panic!();
+                }
+            }
+        } else {
+            panic!();
         }
     }
 

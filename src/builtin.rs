@@ -5,13 +5,38 @@ use std::fs::read_to_string;
 
 pub fn new_builtins() -> HashMap<String, Object> {
     let mut builtins = HashMap::new();
-    builtins.insert(String::from("len"), Object::Builtin(bento_len));
-    builtins.insert(String::from("first"), Object::Builtin(bento_first));
-    builtins.insert(String::from("last"), Object::Builtin(bento_last));
-    builtins.insert(String::from("rest"), Object::Builtin(bento_rest));
-    builtins.insert(String::from("push"), Object::Builtin(bento_push));
-    builtins.insert(String::from("import"), Object::Builtin(bento_import));
-    builtins.insert(String::from("exit"), Object::Builtin(bento_exit));
+    builtins.insert(
+        String::from("len"),
+        Object::Builtin(BuiltinFunc(1, bento_len)),
+    );
+    builtins.insert(
+        String::from("first"),
+        Object::Builtin(BuiltinFunc(2, bento_first)),
+    );
+    builtins.insert(
+        String::from("last"),
+        Object::Builtin(BuiltinFunc(3, bento_last)),
+    );
+    builtins.insert(
+        String::from("rest"),
+        Object::Builtin(BuiltinFunc(4, bento_rest)),
+    );
+    builtins.insert(
+        String::from("push"),
+        Object::Builtin(BuiltinFunc(5, bento_push)),
+    );
+    builtins.insert(
+        String::from("import"),
+        Object::Builtin(BuiltinFunc(6, bento_import)),
+    );
+    builtins.insert(
+        String::from("exit"),
+        Object::Builtin(BuiltinFunc(7, bento_exit)),
+    );
+    builtins.insert(
+        String::from("puts"),
+        Object::Builtin(BuiltinFunc(8, bento_puts)),
+    );
     builtins
 }
 
@@ -147,4 +172,12 @@ fn bento_push(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
         }
         o => Object::Error(format!("argument to `push` must be array. got {}", o)),
     }
+}
+
+fn bento_puts(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+    for arg in args {
+        print!("{}\r\n", arg.string());
+    }
+
+    return Object::Null;
 }

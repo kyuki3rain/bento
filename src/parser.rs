@@ -204,6 +204,7 @@ impl Parser {
             token::TokenType::LBRACKET => return self.parse_array_literal(),
             token::TokenType::IF => return self.parse_if_expression(),
             token::TokenType::FUNCTION => return self.parse_function_literal(),
+            token::TokenType::LBRACE => return self.parse_hash_literal(),
             _ => return None,
         }
     }
@@ -389,6 +390,35 @@ impl Parser {
             }
             None => return None,
         }
+    }
+
+    fn parse_hash_literal(&mut self) -> Option<ast::Expression> {
+        let mut pairs = Vec::new();
+
+        while !self.peek_token_is(&token::TokenType::RBRACE) {
+            self.next_token();
+            let key = self.parse_expression(Precedence::LOWEST)?;
+
+            if !self.expect_peek(token::TokenType::COLON) {
+                return None;
+            }
+
+            self.next_token();
+            let value = self.parse_expression(Precedence::LOWEST)?;
+            pairs.push((key, value));
+
+            if !self.peek_token_is(&token::TokenType::RBRACE)
+                && !self.expect_peek(token::TokenType::COMMA)
+            {
+                return None;
+            }
+        }
+
+        if !self.expect_peek(token::TokenType::RBRACE) {
+            return None;
+        }
+
+        Some(ast::Expression::HashLiteral { pairs })
     }
 
     fn parse_identifier(&self) -> ast::Expression {
@@ -857,6 +887,89 @@ return 993322;
 
             let actual = format!("{}", program);
             assert_eq!(actual, t.1);
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_string_keys() {
+        let input = "{ \"one\": 1, \"two\": 2, \"three\": 3}";
+        let keys = vec!["one", "two", "three"];
+        let values = vec![1, 2, 3];
+
+        let l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(p);
+
+        if let ast::Statement::ExpressionStatement {
+            expression: ast::Expression::HashLiteral { pairs },
+        } = &program.statements[0]
+        {
+            for (i, (key, v)) in pairs.iter().enumerate() {
+                if let ast::Expression::StringLiteral { value } = key {
+                    assert_eq!(value, keys[i]);
+                } else {
+                    panic!();
+                }
+                if let ast::Expression::IntegerLiteral { value } = v {
+                    assert_eq!(value, &values[i]);
+                } else {
+                    panic!();
+                }
+            }
+        } else {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn test_parsing_hash_literal_with_expressions() {
+        let input = "{ \"one\": 0 + 1, \"two\": 10 - 8, \"three\": 15 / 5}";
+        let keys = vec!["one", "two", "three"];
+        let values1 = vec![0, 10, 15];
+        let values2 = vec!["+", "-", "/"];
+        let values3 = vec![1, 8, 5];
+
+        let l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(p);
+
+        if let ast::Statement::ExpressionStatement {
+            expression: ast::Expression::HashLiteral { pairs },
+        } = &program.statements[0]
+        {
+            for (i, (key, v)) in pairs.iter().enumerate() {
+                if let ast::Expression::StringLiteral { value } = key {
+                    assert_eq!(value, keys[i]);
+                } else {
+                    panic!();
+                }
+                test_infix_expression(v, values1[i], values2[i], values3[i]);
+            }
+        } else {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn test_parsing_empty_hash_literal() {
+        let input = "{}";
+
+        let l = lexer::Lexer::new(input);
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(p);
+
+        if let ast::Statement::ExpressionStatement {
+            expression: ast::Expression::HashLiteral { pairs },
+        } = &program.statements[0]
+        {
+            if pairs.len() != 0 {
+                panic!();
+            }
+        } else {
+            panic!();
         }
     }
 
