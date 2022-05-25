@@ -71,6 +71,7 @@ impl Lexer {
             ']' => token::new_token(token::TokenType::RBRACKET, self.ch.to_string()),
             '"' => token::new_token(token::TokenType::STRING, self.read_string()),
             ':' => token::new_token(token::TokenType::COLON, self.ch.to_string()),
+            '.' => token::new_token(token::TokenType::DOT, self.ch.to_string()),
             '\0' => token::Token {
                 token_type: token::TokenType::EOF,
                 literal: String::from(""),

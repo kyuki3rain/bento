@@ -19,6 +19,7 @@ impl PartialEq for BuiltinFunc {
 #[derive(Clone, PartialEq)]
 pub enum Object {
     Integer(i64),
+    Float(f64),
     String(String),
     Boolean(bool),
     Return(Box<Object>),
@@ -39,6 +40,7 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Object::Integer(_) => return write!(f, "INTEGER"),
+            Object::Float(_) => return write!(f, "FLOAT"),
             Object::String(_) => return write!(f, "STRING"),
             Object::Boolean(_) => return write!(f, "BOOLEAN"),
             Object::Return(_) => return write!(f, "RETURN"),
@@ -61,6 +63,7 @@ impl Object {
     pub fn string(&self) -> String {
         match self {
             Object::Integer(value) => return format!("{}", value),
+            Object::Float(value) => return format!("{}", value),
             Object::String(value) => return format!("\"{}\"", value),
             Object::Boolean(value) => return format!("{}", value),
             Object::Return(value) => return format!("{}", value),

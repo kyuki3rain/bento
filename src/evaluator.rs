@@ -290,12 +290,8 @@ impl Evaluator {
         left: object::Object,
         right: object::Object,
     ) -> Option<object::Object> {
-        if format!("{}", left) != format!("{}", right) {
-            return Some(object::Object::Error(format!(
-                "type mismatch: {} {} {}",
-                left, operator, right
-            )));
-        }
+        let err =
+            object::Object::Error(format!("type mismatch: {} {} {}", &left, operator, &right));
         match left {
             object::Object::Integer(left_value) => match right {
                 object::Object::Integer(right_value) => {
@@ -305,7 +301,31 @@ impl Evaluator {
                         right_value,
                     )
                 }
-                _ => return None,
+                object::Object::Float(right_value) => {
+                    return Evaluator::eval_float_infix_expression(
+                        operator,
+                        left_value as f64,
+                        right_value,
+                    )
+                }
+                _ => return Some(err),
+            },
+            object::Object::Float(left_value) => match right {
+                object::Object::Integer(right_value) => {
+                    return Evaluator::eval_float_infix_expression(
+                        operator,
+                        left_value,
+                        right_value as f64,
+                    )
+                }
+                object::Object::Float(right_value) => {
+                    return Evaluator::eval_float_infix_expression(
+                        operator,
+                        left_value as f64,
+                        right_value,
+                    )
+                }
+                _ => return Some(err),
             },
             object::Object::String(left_value) => match right {
                 object::Object::String(right_value) => {
@@ -315,7 +335,7 @@ impl Evaluator {
                         right_value,
                     )
                 }
-                _ => return None,
+                _ => return Some(err),
             },
             object::Object::Boolean(left_value) => match right {
                 object::Object::Boolean(right_value) => match &*operator {
@@ -328,11 +348,26 @@ impl Evaluator {
                         )))
                     }
                 },
-                _ => return None,
+                _ => return Some(err),
             },
-            _ => return None,
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "type mismatch: {} {} {}",
+                    &left, operator, &right
+                )))
+            }
         }
     }
+
+    fn eval_float(left_value: i64, right_value: i64) -> object::Object {
+        let mut under_dot = right_value as f64;
+        while under_dot >= 1.0 {
+            under_dot = under_dot / 10.0;
+        }
+
+        return object::Object::Float(left_value as f64 + under_dot);
+    }
+
     fn eval_integer_infix_expression(
         operator: String,
         left_value: i64,
@@ -343,6 +378,30 @@ impl Evaluator {
             "-" => return Some(object::Object::Integer(left_value - right_value)),
             "*" => return Some(object::Object::Integer(left_value * right_value)),
             "/" => return Some(object::Object::Integer(left_value / right_value)),
+            "." => return Some(Evaluator::eval_float(left_value, right_value)),
+            "<" => return Some(Evaluator::eval_boolean(left_value < right_value)),
+            ">" => return Some(Evaluator::eval_boolean(left_value > right_value)),
+            "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
+            "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
+            _ => {
+                return Some(object::Object::Error(format!(
+                    "unknown operator: {} {} {}",
+                    left_value, operator, right_value
+                )))
+            }
+        }
+    }
+
+    fn eval_float_infix_expression(
+        operator: String,
+        left_value: f64,
+        right_value: f64,
+    ) -> Option<object::Object> {
+        match &*operator {
+            "+" => return Some(object::Object::Float(left_value + right_value)),
+            "-" => return Some(object::Object::Float(left_value - right_value)),
+            "*" => return Some(object::Object::Float(left_value * right_value)),
+            "/" => return Some(object::Object::Float(left_value / right_value)),
             "<" => return Some(Evaluator::eval_boolean(left_value < right_value)),
             ">" => return Some(Evaluator::eval_boolean(left_value > right_value)),
             "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),

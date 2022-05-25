@@ -11,6 +11,7 @@ pub enum Precedence {
     PREFIX,
     CALL,
     INDEX,
+    FLOAT,
 }
 
 #[allow(dead_code)]
@@ -26,6 +27,7 @@ pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
         token::TokenType::ASTERISK => return Precedence::PRODUCT,
         token::TokenType::LPAREN => return Precedence::CALL,
         token::TokenType::LBRACKET => return Precedence::INDEX,
+        token::TokenType::DOT => return Precedence::FLOAT,
         _ => return Precedence::LOWEST,
     }
 }
@@ -216,6 +218,7 @@ impl Parser {
     ) -> Option<ast::Expression> {
         match t {
             token::TokenType::PLUS => return self.parse_infix_expression(left_exp),
+            token::TokenType::DOT => return self.parse_infix_expression(left_exp),
             token::TokenType::MINUS => return self.parse_infix_expression(left_exp),
             token::TokenType::SLASH => return self.parse_infix_expression(left_exp),
             token::TokenType::ASTERISK => return self.parse_infix_expression(left_exp),
