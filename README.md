@@ -360,14 +360,6 @@ exit();
 
 ---
 
-Enjoy Monkey :monkey_face: !
-
----
-
-
-## License
-
-[MIT © wadackel](./LICENSE)
 
 
 [writing-an-interpreter-in-go]: https://interpreterbook.com/#the-monkey-programming-language
