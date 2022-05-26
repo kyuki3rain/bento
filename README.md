@@ -86,6 +86,35 @@ if (true) {
 }
 ```
 
+#### While
+
+It supports the general `while`.
+
+input
+```
+let i = 0;
+0
+while (i < 10){
+  let i = i + 1;
+  puts(i);
+}
+```
+
+output
+```
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+```
+
+
 #### Operators
 
 It supports the general operations.
