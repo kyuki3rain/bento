@@ -88,6 +88,10 @@ pub enum Expression {
         operator: String,
         right: Box<Expression>,
     },
+    AssignExpression {
+        left: Box<Expression>,
+        right: Box<Expression>,
+    },
     Boolean {
         value: bool,
     },
@@ -145,6 +149,9 @@ impl fmt::Display for Expression {
                 right,
             } => {
                 return write!(f, "({} {} {})", left, operator, right);
+            }
+            Expression::AssignExpression { left, right } => {
+                return write!(f, "{} = {}", left, right);
             }
             Expression::Boolean { value } => return write!(f, "{}", value),
             Expression::ArrayLiteral { elements } => {

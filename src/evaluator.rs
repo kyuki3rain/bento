@@ -113,6 +113,28 @@ impl Evaluator {
                 }
                 None => return None,
             },
+            ast::Expression::AssignExpression { left, right } => match self.eval_expression(*right)
+            {
+                Some(right_evaluated) => {
+                    if Evaluator::is_error(&right_evaluated) {
+                        return Some(right_evaluated);
+                    }
+                    match *left {
+                        ast::Expression::Identifier { value } => {
+                            if !self.env.borrow_mut().contains_key(&value) {
+                                return Some(object::Object::Error(format!(
+                                    "{} is not defined before.",
+                                    &value
+                                )));
+                            }
+                            self.env.borrow_mut().set(value, &right_evaluated);
+                            return Some(right_evaluated);
+                        }
+                        _ => return None,
+                    }
+                }
+                None => return None,
+            },
             ast::Expression::Boolean { value } => return Some(Evaluator::eval_boolean(value)),
             ast::Expression::ArrayLiteral { elements } => {
                 let elms = self.eval_expressions(elements);

@@ -4,19 +4,21 @@ use super::{ast, lexer, token};
 #[derive(PartialEq, PartialOrd, Debug)]
 pub enum Precedence {
     LOWEST,
+    ASSIGN,
     EQUALS,
     LESSGREATER,
     SUM,
     PRODUCT,
     PREFIX,
+    DOT,
     CALL,
     INDEX,
-    FLOAT,
 }
 
 #[allow(dead_code)]
 pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
     match t {
+        token::TokenType::ASSIGN => return Precedence::ASSIGN,
         token::TokenType::EQ => return Precedence::EQUALS,
         token::TokenType::NOTEQ => return Precedence::EQUALS,
         token::TokenType::LT => return Precedence::LESSGREATER,
@@ -25,9 +27,9 @@ pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
         token::TokenType::MINUS => return Precedence::SUM,
         token::TokenType::SLASH => return Precedence::PRODUCT,
         token::TokenType::ASTERISK => return Precedence::PRODUCT,
+        token::TokenType::DOT => return Precedence::DOT,
         token::TokenType::LPAREN => return Precedence::CALL,
         token::TokenType::LBRACKET => return Precedence::INDEX,
-        token::TokenType::DOT => return Precedence::FLOAT,
         _ => return Precedence::LOWEST,
     }
 }
@@ -223,6 +225,7 @@ impl Parser {
             token::TokenType::MINUS => return self.parse_infix_expression(left_exp),
             token::TokenType::SLASH => return self.parse_infix_expression(left_exp),
             token::TokenType::ASTERISK => return self.parse_infix_expression(left_exp),
+            token::TokenType::ASSIGN => return self.parse_assign_expression(left_exp),
             token::TokenType::EQ => return self.parse_infix_expression(left_exp),
             token::TokenType::NOTEQ => return self.parse_infix_expression(left_exp),
             token::TokenType::LT => return self.parse_infix_expression(left_exp),
@@ -256,6 +259,19 @@ impl Parser {
         if let Some(right) = self.parse_expression(Precedence::PREFIX) {
             return Some(ast::Expression::PrefixExpression {
                 operator: expression_operator,
+                right: Box::new(right),
+            });
+        } else {
+            return None;
+        }
+    }
+
+    fn parse_assign_expression(&mut self, left: Box<ast::Expression>) -> Option<ast::Expression> {
+        let precedence = self.cur_precedence();
+        self.next_token();
+        if let Some(right) = self.parse_expression(precedence) {
+            return Some(ast::Expression::AssignExpression {
+                left,
                 right: Box::new(right),
             });
         } else {

@@ -74,6 +74,21 @@ let fibonacci = fn(x) {
 fibonacci(10);
 ```
 
+#### Initialization & Substitution
+It supports the general `let`. You also can omit `let` only substitution.
+
+```
+let a = 10;
+let b = 11;
+let c = a + b;
+
+a = 12;
+b = b + 1;
+d = 10; ## error!
+```
+
+### 
+
 #### If
 
 It supports the general `if`. `else` exists, but` else if` does not exist.
