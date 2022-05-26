@@ -4,19 +4,21 @@ use super::{ast, lexer, token};
 #[derive(PartialEq, PartialOrd, Debug)]
 pub enum Precedence {
     LOWEST,
+    ASSIGN,
     EQUALS,
     LESSGREATER,
     SUM,
     PRODUCT,
     PREFIX,
+    DOT,
     CALL,
     INDEX,
-    FLOAT,
 }
 
 #[allow(dead_code)]
 pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
     match t {
+        token::TokenType::ASSIGN => return Precedence::ASSIGN,
         token::TokenType::EQ => return Precedence::EQUALS,
         token::TokenType::NOTEQ => return Precedence::EQUALS,
         token::TokenType::LT => return Precedence::LESSGREATER,
@@ -25,9 +27,9 @@ pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
         token::TokenType::MINUS => return Precedence::SUM,
         token::TokenType::SLASH => return Precedence::PRODUCT,
         token::TokenType::ASTERISK => return Precedence::PRODUCT,
+        token::TokenType::DOT => return Precedence::DOT,
         token::TokenType::LPAREN => return Precedence::CALL,
         token::TokenType::LBRACKET => return Precedence::INDEX,
-        token::TokenType::DOT => return Precedence::FLOAT,
         _ => return Precedence::LOWEST,
     }
 }
@@ -205,6 +207,7 @@ impl Parser {
             token::TokenType::LPAREN => return self.parse_grouped_expression(),
             token::TokenType::LBRACKET => return self.parse_array_literal(),
             token::TokenType::IF => return self.parse_if_expression(),
+            token::TokenType::WHILE => return self.parse_while_expression(),
             token::TokenType::FUNCTION => return self.parse_function_literal(),
             token::TokenType::LBRACE => return self.parse_hash_literal(),
             _ => return None,
@@ -222,6 +225,7 @@ impl Parser {
             token::TokenType::MINUS => return self.parse_infix_expression(left_exp),
             token::TokenType::SLASH => return self.parse_infix_expression(left_exp),
             token::TokenType::ASTERISK => return self.parse_infix_expression(left_exp),
+            token::TokenType::ASSIGN => return self.parse_assign_expression(left_exp),
             token::TokenType::EQ => return self.parse_infix_expression(left_exp),
             token::TokenType::NOTEQ => return self.parse_infix_expression(left_exp),
             token::TokenType::LT => return self.parse_infix_expression(left_exp),
@@ -255,6 +259,19 @@ impl Parser {
         if let Some(right) = self.parse_expression(Precedence::PREFIX) {
             return Some(ast::Expression::PrefixExpression {
                 operator: expression_operator,
+                right: Box::new(right),
+            });
+        } else {
+            return None;
+        }
+    }
+
+    fn parse_assign_expression(&mut self, left: Box<ast::Expression>) -> Option<ast::Expression> {
+        let precedence = self.cur_precedence();
+        self.next_token();
+        if let Some(right) = self.parse_expression(precedence) {
+            return Some(ast::Expression::AssignExpression {
+                left,
                 right: Box::new(right),
             });
         } else {
@@ -371,6 +388,37 @@ impl Parser {
             None => return None,
         }
     }
+
+    fn parse_while_expression(&mut self) -> Option<ast::Expression> {
+        if !self.expect_peek(token::TokenType::LPAREN) {
+            return None;
+        }
+
+        self.next_token();
+        match self.parse_expression(Precedence::LOWEST) {
+            Some(condition) => {
+                if !self.expect_peek(token::TokenType::RPAREN) {
+                    return None;
+                }
+                if !self.expect_peek(token::TokenType::LBRACE) {
+                    return None;
+                }
+
+                match self.parse_block_statement() {
+                    Some(consequence) => {
+                        let expression = ast::Expression::WhileExpression {
+                            condition: Box::new(condition),
+                            consequence: Box::new(consequence),
+                        };
+                        return Some(expression);
+                    }
+                    None => return Some(ast::Expression::NeedNext),
+                }
+            }
+            None => return None,
+        }
+    }
+
     fn parse_function_literal(&mut self) -> Option<ast::Expression> {
         if !self.expect_peek(token::TokenType::LPAREN) {
             return None;
@@ -772,6 +820,7 @@ return 993322;
             let tests: [(&str, &str); _] = [
                 ("if (x < y) { x }", "if ((x < y)) {\r\n\tx\r\n}\r\n"),
                 ("if (x < y) { x } else { y }", "if ((x < y)) {\r\n\tx\r\n} else {\r\n\ty\r\n}\r\n"),
+                ("while (true) {}", "while (true) {\r\n}\r\n"),
             ]
         );
 

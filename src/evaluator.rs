@@ -113,6 +113,28 @@ impl Evaluator {
                 }
                 None => return None,
             },
+            ast::Expression::AssignExpression { left, right } => match self.eval_expression(*right)
+            {
+                Some(right_evaluated) => {
+                    if Evaluator::is_error(&right_evaluated) {
+                        return Some(right_evaluated);
+                    }
+                    match *left {
+                        ast::Expression::Identifier { value } => {
+                            if !self.env.borrow_mut().contains_key(&value) {
+                                return Some(object::Object::Error(format!(
+                                    "{} is not defined before.",
+                                    &value
+                                )));
+                            }
+                            self.env.borrow_mut().set(value, &right_evaluated);
+                            return Some(right_evaluated);
+                        }
+                        _ => return None,
+                    }
+                }
+                None => return None,
+            },
             ast::Expression::Boolean { value } => return Some(Evaluator::eval_boolean(value)),
             ast::Expression::ArrayLiteral { elements } => {
                 let elms = self.eval_expressions(elements);
@@ -139,6 +161,10 @@ impl Evaluator {
                 consequence,
                 alternative,
             } => return self.eval_if_expression(condition, consequence, alternative),
+            ast::Expression::WhileExpression {
+                condition,
+                consequence,
+            } => return self.eval_while_expression(condition, consequence),
             ast::Expression::FunctionLiteral { parameters, body } => {
                 return Some(object::Object::Function {
                     parameters,
@@ -486,6 +512,42 @@ impl Evaluator {
         }
     }
 
+    fn eval_while_expression(
+        &mut self,
+        condition: Box<ast::Expression>,
+        consequence: Box<ast::Statement>,
+    ) -> Option<object::Object> {
+        let mut object = object::Object::Null;
+        loop {
+            if let Some(evaluated_condition) = self.eval_expression(*condition.clone()) {
+                if Evaluator::is_error(&evaluated_condition) {
+                    return Some(evaluated_condition);
+                }
+                if !Evaluator::is_truthy(evaluated_condition) {
+                    break;
+                }
+
+                object = match self.eval_statement(*consequence.clone()) {
+                    Some(object::Object::Return(value)) => {
+                        return Some(object::Object::Return(value));
+                    }
+                    Some(obj) => obj,
+                    _ => {
+                        return None;
+                    }
+                };
+
+                if Evaluator::is_error(&object) {
+                    return Some(object);
+                }
+            } else {
+                return None;
+            }
+        }
+
+        return Some(object);
+    }
+
     fn eval_identifier(&mut self, ident: String) -> Option<object::Object> {
         if let Some(value) = self.env.borrow_mut().get((&ident).to_string()) {
             return Some(value);
@@ -630,6 +692,26 @@ mod evaluator_tests {
                 ("if (1 > 2) { 10 }", None),
                 ("if (1 > 2) { 10 } else { 20 }", Some(20)),
                 ("if (1 < 2) { 10 } else { 20 }", Some(10)),
+                ("if (1 < 2) { 10 } else { 20 }", Some(10)),
+            ]
+        );
+
+        for t in tests {
+            let evaluated = test_eval(t.0.to_string());
+            if let Some(integ) = t.1 {
+                test_integer_object(evaluated, integ);
+            } else {
+                test_null_object(evaluated);
+            }
+        }
+    }
+
+    #[test]
+    fn test_while_expression() {
+        counted_array!(
+            let tests: [(&str, Option<i64>); _] = [
+                ("let i = 0; while (i < 10) { let i = i + 1; }", Some(10)),
+                ("let i = 0; while (true) { let i = i + 1; if (i == 10) { return i; } }", Some(10)),
             ]
         );
 

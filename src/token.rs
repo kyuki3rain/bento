@@ -41,6 +41,7 @@ pub enum TokenType {
     IF,
     ELSE,
     RETURN,
+    WHILE,
 }
 
 impl fmt::Display for TokenType {
@@ -74,6 +75,7 @@ pub fn lookup_ident(ident: &str) -> TokenType {
         "if" => TokenType::IF,
         "else" => TokenType::ELSE,
         "return" => TokenType::RETURN,
+        "while" => TokenType::WHILE,
         _ => TokenType::IDENT,
     }
 }

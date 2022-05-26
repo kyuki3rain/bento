@@ -13,3 +13,8 @@ if(a == 10) {
 } else {
     reduce(a, b);
 }
+
+let i = 0;
+while (i < 10) {
+    let i = i + 1;
+}

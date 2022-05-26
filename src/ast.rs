@@ -38,7 +38,6 @@ impl Statement {
     pub fn need_next(&self) -> bool {
         match self {
             Statement::LetStatement { name: _, value } => value.need_next(),
-
             Statement::ReturnStatement { return_value } => return_value.need_next(),
             Statement::ExpressionStatement { expression } => expression.need_next(),
             Statement::BlockStatement { statements } => {
@@ -89,6 +88,10 @@ pub enum Expression {
         operator: String,
         right: Box<Expression>,
     },
+    AssignExpression {
+        left: Box<Expression>,
+        right: Box<Expression>,
+    },
     Boolean {
         value: bool,
     },
@@ -103,6 +106,10 @@ pub enum Expression {
         condition: Box<Expression>,
         consequence: Box<Statement>,
         alternative: Option<Box<Statement>>,
+    },
+    WhileExpression {
+        condition: Box<Expression>,
+        consequence: Box<Statement>,
     },
     FunctionLiteral {
         parameters: Vec<Expression>,
@@ -143,6 +150,9 @@ impl fmt::Display for Expression {
             } => {
                 return write!(f, "({} {} {})", left, operator, right);
             }
+            Expression::AssignExpression { left, right } => {
+                return write!(f, "{} = {}", left, right);
+            }
             Expression::Boolean { value } => return write!(f, "{}", value),
             Expression::ArrayLiteral { elements } => {
                 let mut s = "".to_string();
@@ -166,6 +176,10 @@ impl fmt::Display for Expression {
                 Some(alt) => return write!(f, "if ({}) {} else {}", condition, consequence, alt),
                 None => return write!(f, "if ({}) {}", condition, consequence),
             },
+            Expression::WhileExpression {
+                condition,
+                consequence,
+            } => return write!(f, "while ({}) {}", condition, consequence),
             Expression::FunctionLiteral { parameters, body } => {
                 let mut s = "".to_string();
                 for (i, p) in parameters.iter().enumerate() {

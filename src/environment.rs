@@ -37,4 +37,7 @@ impl Environment {
     pub fn set(&mut self, name: String, val: &object::Object) {
         self.store.insert(name, val.clone());
     }
+    pub fn contains_key(&mut self, name: &str) -> bool {
+        return self.store.contains_key(name);
+    }
 }

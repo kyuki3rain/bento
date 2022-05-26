@@ -1,7 +1,7 @@
 # Strainer
 
 ## What's Strainer?
-Strainer Programming Language looks like `Monkey`.
+Strainer Interpreter Programming Language looks like `Monkey`.
 
 `Monkey` is a programming language designed to learn interpreters.  
 It's came from [Writing An Interpreter In Go][writing-an-interpreter-in-go].
@@ -74,6 +74,21 @@ let fibonacci = fn(x) {
 fibonacci(10);
 ```
 
+#### Initialization & Substitution
+It supports the general `let`. You also can omit `let` only substitution.
+
+```
+let a = 10;
+let b = 11;
+let c = a + b;
+
+a = 12;
+b = b + 1;
+d = 10; ## error!
+```
+
+### 
+
 #### If
 
 It supports the general `if`. `else` exists, but` else if` does not exist.
@@ -85,6 +100,35 @@ if (true) {
   5;
 }
 ```
+
+#### While
+
+It supports the general `while`.
+
+input
+```
+let i = 0;
+0
+while (i < 10){
+  let i = i + 1;
+  puts(i);
+}
+```
+
+output
+```
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+```
+
 
 #### Operators
 
@@ -145,10 +189,6 @@ Five types of literals are implemented.
 
 `Integer` represents an integer value.
 
-#### Float
-
-`Float` represents an float value.
-
 **Format:**
 
 ```
@@ -160,6 +200,23 @@ Five types of literals are implemented.
 ```
 10;
 1234;
+```
+
+#### Float
+
+`Float` represents an float value.
+
+**Format:**
+
+```
+<Integer>.<Integer>
+```
+
+**Example:**
+
+```
+10.0;
+12.34;
 ```
 
 #### Boolean
@@ -292,7 +349,7 @@ Passing around functions, higher-order functions and closures will also work.
 
 ### Built-in Functions
 
-You can use 6 built-in functions :rocket:
+You can use 8 built-in functions :rocket:
 
 #### `puts(<arg1>, <arg2>, ...): void`
 
