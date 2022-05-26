@@ -1,7 +1,7 @@
 # Strainer
 
 ## What's Strainer?
-Strainer Programming Language looks like `Monkey`.
+Strainer Interpreter Programming Language looks like `Monkey`.
 
 `Monkey` is a programming language designed to learn interpreters.  
 It's came from [Writing An Interpreter In Go][writing-an-interpreter-in-go].
