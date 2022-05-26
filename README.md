@@ -174,10 +174,6 @@ Five types of literals are implemented.
 
 `Integer` represents an integer value.
 
-#### Float
-
-`Float` represents an float value.
-
 **Format:**
 
 ```
@@ -189,6 +185,23 @@ Five types of literals are implemented.
 ```
 10;
 1234;
+```
+
+#### Float
+
+`Float` represents an float value.
+
+**Format:**
+
+```
+<Integer>.<Integer>
+```
+
+**Example:**
+
+```
+10.0;
+12.34;
 ```
 
 #### Boolean
@@ -321,7 +334,7 @@ Passing around functions, higher-order functions and closures will also work.
 
 ### Built-in Functions
 
-You can use 6 built-in functions :rocket:
+You can use 8 built-in functions :rocket:
 
 #### `puts(<arg1>, <arg2>, ...): void`
 
