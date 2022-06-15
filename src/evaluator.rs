@@ -149,7 +149,7 @@ impl Evaluator {
             ast::Expression::ArrayLiteral { elements } => {
                 let elms = self.eval_expressions(elements);
                 if elms.len() == 1 && Evaluator::is_error(&elms[0]) {
-                    return Some(elms[0].clone());
+                    return Some(Rc::clone(&elms[0]));
                 }
                 return Some(Rc::new(object::Object::Array(elms)));
             }
@@ -192,7 +192,7 @@ impl Evaluator {
                     }
                     let args = self.eval_expressions(arguments);
                     if args.len() == 1 && Evaluator::is_error(&args[0]) {
-                        return Some(args[0].clone());
+                        return Some(Rc::clone(&args[0]));
                     }
                     return self.apply_function(func, args);
                 } else {
@@ -234,7 +234,7 @@ impl Evaluator {
             }
         } else if let object::Object::Hash(hash) = &*left {
             if let Some(obj) = hash.get(&index) {
-                return Some(obj.clone());
+                return Some(Rc::clone(obj));
             }
         }
 
@@ -250,7 +250,7 @@ impl Evaluator {
                 "list index out of range"
             )));
         }
-        return Some(elements[i as usize].clone());
+        return Some(Rc::clone(&elements[i as usize]));
     }
 
     fn apply_function(
@@ -952,48 +952,42 @@ mod evaluator_tests {
     }
 
     #[test]
-    fn test_long_function() {
-        let input = "let two = \"two\";
-        {
-            \"one\": 10 - 9,
-            two: 1 + 1,
-            \"thr\" + \"ee\": 6 / 2,
-            4: 4,
-            true: 5,
-            false: 6,
-        }";
+    fn test_builtin_function() {
+        let input = "
+        let i = 2;
+        let a = [1, 1];
+        while(i < 30) {
+            let a = push(a, a[i - 2] + a[i - 1]);
+            let i = i + 1;
+        }
+        ";
 
-        let keys = vec![
-            object::Object::String(String::from("one")),
-            object::Object::String(String::from("two")),
-            object::Object::String(String::from("three")),
-            object::Object::Integer(4),
-            object::Object::Boolean(true),
-            object::Object::Boolean(false),
-        ];
+        let mut evaluator = Evaluator::new();
+        test_eval_with_evaluator(input.to_string(), &mut evaluator);
+        let evaluated = test_eval_with_evaluator("len(a)".to_string(), &mut evaluator);
+        test_integer_object(&evaluated, 30);
+        let evaluated = test_eval_with_evaluator("first(a)".to_string(), &mut evaluator);
+        test_integer_object(&evaluated, 1);
+        let evaluated = test_eval_with_evaluator("last(a)".to_string(), &mut evaluator);
+        test_integer_object(&evaluated, 832040);
+    }
 
-        let values = vec![
-            object::Object::Integer(1),
-            object::Object::Integer(2),
-            object::Object::Integer(3),
-            object::Object::Integer(4),
-            object::Object::Integer(5),
-            object::Object::Integer(6),
-        ];
+    fn test_eval_with_evaluator(input: String, evaluator: &mut Evaluator) -> Rc<object::Object> {
+        let l = lexer::Lexer::new(&input);
+        let mut p = parser::Parser::new(l);
+        let program = p.parse_program();
 
-        let evaluated = test_eval(input.to_string());
-        if let object::Object::Hash(hash) = &*evaluated {
-            for (i, key) in keys.iter().enumerate() {
-                if let Some(value) = hash.get(&Rc::new(key.clone())) {
-                    if **value != values[i] {
-                        panic!();
-                    }
-                } else {
-                    panic!();
-                }
+        if p.errors.len() != 0 {
+            let mut s = "".to_string();
+            for err in p.errors {
+                s += &format!("\t{}\r\n", err);
             }
-        } else {
-            panic!();
+            panic!("parser errors:\r\n{}", s);
+        }
+
+        match evaluator.eval_program(program) {
+            Some(obj) => return Rc::clone(&obj),
+            None => panic!(),
         }
     }
 

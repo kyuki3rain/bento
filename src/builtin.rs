@@ -142,7 +142,7 @@ fn strainer_last(args: Vec<Rc<Object>>, _: &mut evaluator::Evaluator) -> Rc<Obje
     match &*args[0] {
         Object::Array(o) => {
             if let Some(ao) = o.last() {
-                ao.clone()
+                Rc::clone(ao)
             } else {
                 Rc::new(NULL)
             }
@@ -168,7 +168,7 @@ fn strainer_push(args: Vec<Rc<Object>>, _: &mut evaluator::Evaluator) -> Rc<Obje
     match &*args[0] {
         Object::Array(o) => {
             let mut arr = o.clone();
-            arr.push(args[1].clone());
+            arr.push(Rc::clone(&args[1]));
             Rc::new(Object::Array(arr))
         }
         o => Object::new_error(format!("argument to `push` must be array. got {}", o)),

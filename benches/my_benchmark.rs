@@ -6,24 +6,10 @@ use mylib::{lexer, parser};
 fn bm1(c: &mut Criterion) {
     c.bench_function("v0.1.5", |b| {
         b.iter(|| {
-            let input = "let a = 10;
-            let b = 11;
-            let add = fn(x, y){
-                a + b;
-            };
-            let reduce = fn(x, y) {
-                a - b;
-            }
-            add(a, b);
-            add(a, add(a, add(a, b)));
-            if(a == 10) {
-                add(a, b);
-            } else {
-                reduce(a, b);
-            }
-            
+            let input = "
             let i = 0;
-            while (i < 10) {
+            let a = [];
+            while(i < 100000) {
                 let i = i + 1;
             }
             ";
