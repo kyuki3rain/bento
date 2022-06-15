@@ -194,7 +194,7 @@ impl Repl {
         } else {
             match self.evaluator.borrow_mut().eval_program(program) {
                 Some(evaluated) => {
-                    if let object::Object::Null = evaluated {
+                    if let object::Object::Null = *evaluated {
                     } else {
                         output += &evaluated.string();
                     }

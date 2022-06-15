@@ -8,7 +8,7 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct BuiltinFunc(
     pub i64,
-    pub fn(Vec<Object>, &mut evaluator::Evaluator) -> Object,
+    pub fn(Vec<Rc<Object>>, &mut evaluator::Evaluator) -> Rc<Object>,
 );
 impl PartialEq for BuiltinFunc {
     fn eq(&self, other: &Self) -> bool {
@@ -22,18 +22,18 @@ pub enum Object {
     Float(f64),
     String(String),
     Boolean(bool),
-    Return(Box<Object>),
+    Return(Rc<Object>),
     Error(String),
     Builtin(BuiltinFunc),
-    Array(Vec<Object>),
-    Hash(HashMap<Object, Object>),
+    Array(Vec<Rc<Object>>),
+    Hash(HashMap<Rc<Object>, Rc<Object>>),
     Function {
         parameters: Vec<ast::Expression>,
         body: ast::Statement,
         env: Rc<RefCell<environment::Environment>>,
     },
     Null,
-    Exit(i32),
+    Exit,
 }
 
 impl fmt::Display for Object {
@@ -54,12 +54,19 @@ impl fmt::Display for Object {
                 env: _,
             } => return write!(f, "FUNCTION"),
             Object::Null => return write!(f, "NULL"),
-            Object::Exit(_) => return write!(f, "Exit"),
+            Object::Exit => return write!(f, "Exit"),
         }
     }
 }
 
 impl Object {
+    pub fn new_error(message: String) -> Rc<Self> {
+        return Rc::new(Self::Error(message));
+    }
+    pub fn new_builtin(func: BuiltinFunc) -> Rc<Self> {
+        return Rc::new(Self::Builtin(func));
+    }
+
     pub fn string(&self) -> String {
         match self {
             Object::Integer(value) => return format!("{}", value),
@@ -106,7 +113,7 @@ impl Object {
                 return format!("fn({}) {}", s, body);
             }
             Object::Null => return "NULL".to_string(),
-            Object::Exit(_) => return "Exit".to_string(),
+            Object::Exit => return "Exit".to_string(),
         }
     }
 }
@@ -127,3 +134,4 @@ impl Hash for Object {
 pub const TRUE: Object = Object::Boolean(true);
 pub const FALSE: Object = Object::Boolean(false);
 pub const NULL: Object = Object::Null;
+pub const EXIT: Object = Object::Exit;
