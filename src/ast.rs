@@ -16,7 +16,7 @@ impl Program {
 }
 
 impl fmt::Display for Program {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = "".to_string();
         for stmt in &self.statements {
             s += &format!("{}\r\n", stmt);
@@ -48,7 +48,7 @@ impl Statement {
 }
 
 impl fmt::Display for Statement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::LetStatement { name, value } => {
                 return write!(f, "let {} = {};", name, value)
@@ -135,7 +135,7 @@ impl Expression {
 }
 
 impl fmt::Display for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expression::Identifier { value } => return write!(f, "{}", value),
             Expression::IntegerLiteral { value } => return write!(f, "{}", value),

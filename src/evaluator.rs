@@ -6,7 +6,7 @@ use std::rc::Rc;
 #[derive(PartialEq)]
 pub struct Evaluator {
     env: Rc<RefCell<environment::Environment>>,
-    builtin: HashMap<String, object::Object>,
+    builtin: HashMap<String, Rc<object::Object>>,
 }
 
 impl Evaluator {
@@ -17,37 +17,42 @@ impl Evaluator {
         };
     }
 
-    pub fn eval_program(&mut self, program: ast::Program) -> Option<object::Object> {
+    pub fn eval_program(&mut self, program: ast::Program) -> Option<Rc<object::Object>> {
         match self.eval_block_statement(program.statements) {
-            Some(object::Object::Return(value)) => return Some(*value),
-            Some(r) => return Some(r),
+            Some(r) => match &*r {
+                object::Object::Return(value) => return Some(Rc::clone(value)),
+                _ => return Some(r),
+            },
             None => return None,
         }
     }
 
-    fn eval_block_statement(&mut self, statements: Vec<ast::Statement>) -> Option<object::Object> {
+    fn eval_block_statement(
+        &mut self,
+        statements: Vec<ast::Statement>,
+    ) -> Option<Rc<object::Object>> {
         let mut result = None;
         for stmt in statements {
             result = self.eval_statement(stmt);
             if let Some(r) = result {
-                match r {
-                    object::Object::Return(value) => return Some(object::Object::Return(value)),
-                    object::Object::Exit(i) => return Some(object::Object::Exit(i)),
-                    object::Object::Error(value) => return Some(object::Object::Error(value)),
+                match &*r {
+                    object::Object::Return(_) => return Some(Rc::clone(&r)),
+                    object::Object::Exit => return Some(Rc::new(object::EXIT)),
+                    object::Object::Error(_) => return Some(Rc::clone(&r)),
                     _ => result = Some(r),
                 }
             }
         }
         return result;
     }
-    fn eval_statement(&mut self, stmt: ast::Statement) -> Option<object::Object> {
+    fn eval_statement(&mut self, stmt: ast::Statement) -> Option<Rc<object::Object>> {
         match stmt {
             ast::Statement::LetStatement { name, value } => match self.eval_expression(value) {
                 Some(val) => {
                     if !Evaluator::is_error(&val) {
-                        self.env.borrow_mut().set(name.to_string(), &val);
+                        self.env.borrow_mut().set(name.to_string(), Rc::clone(&val));
                     }
-                    return Some(val);
+                    return Some(Rc::clone(&val));
                 }
                 None => return None,
             },
@@ -57,7 +62,7 @@ impl Evaluator {
                         if Evaluator::is_error(&value) {
                             return Some(value);
                         }
-                        return Some(object::Object::Return(Box::new(value)));
+                        return Some(Rc::new(object::Object::Return(Rc::clone(&value))));
                     }
                     None => return None,
                 }
@@ -70,13 +75,15 @@ impl Evaluator {
             }
         }
     }
-    fn eval_expression(&mut self, exp: ast::Expression) -> Option<object::Object> {
+    fn eval_expression(&mut self, exp: ast::Expression) -> Option<Rc<object::Object>> {
         match exp {
             ast::Expression::Identifier { value } => return self.eval_identifier(value),
             ast::Expression::IntegerLiteral { value } => {
-                return Some(object::Object::Integer(value))
+                return Some(Rc::new(object::Object::Integer(value)))
             }
-            ast::Expression::StringLiteral { value } => return Some(object::Object::String(value)),
+            ast::Expression::StringLiteral { value } => {
+                return Some(Rc::new(object::Object::String(value)))
+            }
             ast::Expression::PrefixExpression { operator, right } => {
                 match self.eval_expression(*right) {
                     Some(right_evaluated) => {
@@ -103,7 +110,7 @@ impl Evaluator {
                                 return Some(left_evaluated);
                             }
                             return self.eval_infix_expression(
-                                operator,
+                                operator.to_string(),
                                 left_evaluated,
                                 right_evaluated,
                             );
@@ -113,35 +120,38 @@ impl Evaluator {
                 }
                 None => return None,
             },
-            ast::Expression::AssignExpression { left, right } => match self.eval_expression(*right)
-            {
-                Some(right_evaluated) => {
-                    if Evaluator::is_error(&right_evaluated) {
-                        return Some(right_evaluated);
-                    }
-                    match *left {
-                        ast::Expression::Identifier { value } => {
-                            if !self.env.borrow_mut().contains_key(&value) {
-                                return Some(object::Object::Error(format!(
-                                    "{} is not defined before.",
-                                    &value
-                                )));
-                            }
-                            self.env.borrow_mut().set(value, &right_evaluated);
+            ast::Expression::AssignExpression { left, right } => {
+                match self.eval_expression(*right) {
+                    Some(right_evaluated) => {
+                        if Evaluator::is_error(&right_evaluated) {
                             return Some(right_evaluated);
                         }
-                        _ => return None,
+                        match *left {
+                            ast::Expression::Identifier { value } => {
+                                if !self.env.borrow_mut().contains_key(&value) {
+                                    return Some(object::Object::new_error(format!(
+                                        "{} is not defined before.",
+                                        &value
+                                    )));
+                                }
+                                self.env
+                                    .borrow_mut()
+                                    .set(value, Rc::clone(&right_evaluated));
+                                return Some(right_evaluated);
+                            }
+                            _ => return None,
+                        }
                     }
+                    None => return None,
                 }
-                None => return None,
-            },
+            }
             ast::Expression::Boolean { value } => return Some(Evaluator::eval_boolean(value)),
             ast::Expression::ArrayLiteral { elements } => {
                 let elms = self.eval_expressions(elements);
                 if elms.len() == 1 && Evaluator::is_error(&elms[0]) {
                     return Some(elms[0].clone());
                 }
-                return Some(object::Object::Array(elms));
+                return Some(Rc::new(object::Object::Array(elms)));
             }
             ast::Expression::IndexExpression { left, index } => {
                 let left = self.eval_expression(*left)?;
@@ -166,11 +176,11 @@ impl Evaluator {
                 consequence,
             } => return self.eval_while_expression(condition, consequence),
             ast::Expression::FunctionLiteral { parameters, body } => {
-                return Some(object::Object::Function {
+                return Some(Rc::new(object::Object::Function {
                     parameters,
                     env: Rc::clone(&self.env),
                     body: *body,
-                })
+                }))
             }
             ast::Expression::CallExpression {
                 function,
@@ -208,45 +218,47 @@ impl Evaluator {
                     }
                 }
 
-                Some(object::Object::Hash(hash))
+                Some(Rc::new(object::Object::Hash(hash)))
             }
             ast::Expression::NeedNext => return None,
         }
     }
 
     fn eval_index_expression(
-        left: object::Object,
-        index: object::Object,
-    ) -> Option<object::Object> {
-        if let object::Object::Array(elements) = left {
-            if let object::Object::Integer(i) = index {
+        left: Rc<object::Object>,
+        index: Rc<object::Object>,
+    ) -> Option<Rc<object::Object>> {
+        if let object::Object::Array(elements) = &*left {
+            if let object::Object::Integer(i) = *index {
                 return Evaluator::eval_array_index_expression(elements, i);
             }
-        } else if let object::Object::Hash(hash) = left {
+        } else if let object::Object::Hash(hash) = &*left {
             if let Some(obj) = hash.get(&index) {
                 return Some(obj.clone());
             }
         }
 
-        return Some(object::Object::Error(format!("")));
+        return Some(object::Object::new_error(format!("")));
     }
 
     fn eval_array_index_expression(
-        elements: Vec<object::Object>,
+        elements: &Vec<Rc<object::Object>>,
         i: i64,
-    ) -> Option<object::Object> {
+    ) -> Option<Rc<object::Object>> {
         if i < 0 || i > elements.len() as i64 - 1 {
-            return Some(object::Object::Error(format!("list index out of range")));
+            return Some(object::Object::new_error(format!(
+                "list index out of range"
+            )));
         }
         return Some(elements[i as usize].clone());
     }
 
     fn apply_function(
         &mut self,
-        func: object::Object,
-        args: Vec<object::Object>,
-    ) -> Option<object::Object> {
-        match func {
+        func: Rc<object::Object>,
+        args: Vec<Rc<object::Object>>,
+    ) -> Option<Rc<object::Object>> {
+        match &*func {
             object::Object::Function {
                 parameters,
                 body,
@@ -256,7 +268,7 @@ impl Evaluator {
                 let mut extended_env =
                     environment::Environment::new_enclosed_environment(Rc::clone(&env));
                 if args.len() != parameters.len() {
-                    return Some(object::Object::Error(format!(
+                    return Some(object::Object::new_error(format!(
                         "wrong number argument. got={}, expected={}",
                         args.len(),
                         parameters.len()
@@ -265,15 +277,15 @@ impl Evaluator {
                 for (i, p) in parameters.iter().enumerate() {
                     match p {
                         ast::Expression::Identifier { value } => {
-                            extended_env.set((&value).to_string(), &args[i])
+                            extended_env.set((&value).to_string(), Rc::clone(&args[i]))
                         }
                         _ => return None,
                     }
                 }
                 self.env = Rc::new(RefCell::new(extended_env));
-                if let Some(evaluated) = self.eval_statement(body) {
-                    match evaluated {
-                        object::Object::Return(value) => return Some(*value),
+                if let Some(evaluated) = self.eval_statement(body.clone()) {
+                    match &*evaluated {
+                        object::Object::Return(value) => return Some(Rc::clone(value)),
                         _ => {
                             return Some(evaluated);
                         }
@@ -286,7 +298,7 @@ impl Evaluator {
             _ => None,
         }
     }
-    fn eval_expressions(&mut self, exps: Vec<ast::Expression>) -> Vec<object::Object> {
+    fn eval_expressions(&mut self, exps: Vec<ast::Expression>) -> Vec<Rc<object::Object>> {
         let mut result = Vec::new();
         for e in exps {
             if let Some(evaluated) = self.eval_expression(e) {
@@ -298,12 +310,15 @@ impl Evaluator {
         }
         return result;
     }
-    fn eval_prefix_expression(operator: String, right: object::Object) -> Option<object::Object> {
+    fn eval_prefix_expression(
+        operator: String,
+        right: Rc<object::Object>,
+    ) -> Option<Rc<object::Object>> {
         match &*operator {
             "!" => return Evaluator::eval_bang_operator_expression(right),
             "-" => return Evaluator::eval_minus_prefix_operator_expression(right),
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "unknown operator: {}{}",
                     operator, right
                 )))
@@ -313,62 +328,62 @@ impl Evaluator {
     fn eval_infix_expression(
         &mut self,
         operator: String,
-        left: object::Object,
-        right: object::Object,
-    ) -> Option<object::Object> {
+        left: Rc<object::Object>,
+        right: Rc<object::Object>,
+    ) -> Option<Rc<object::Object>> {
         let err =
-            object::Object::Error(format!("type mismatch: {} {} {}", &left, operator, &right));
-        match left {
-            object::Object::Integer(left_value) => match right {
+            object::Object::new_error(format!("type mismatch: {} {} {}", &left, operator, &right));
+        match &*left {
+            object::Object::Integer(left_value) => match *right {
                 object::Object::Integer(right_value) => {
                     return Evaluator::eval_integer_infix_expression(
                         operator,
-                        left_value,
+                        *left_value,
                         right_value,
                     )
                 }
                 object::Object::Float(right_value) => {
                     return Evaluator::eval_float_infix_expression(
                         operator,
-                        left_value as f64,
+                        *left_value as f64,
                         right_value,
                     )
                 }
                 _ => return Some(err),
             },
-            object::Object::Float(left_value) => match right {
+            object::Object::Float(left_value) => match *right {
                 object::Object::Integer(right_value) => {
                     return Evaluator::eval_float_infix_expression(
                         operator,
-                        left_value,
+                        *left_value,
                         right_value as f64,
                     )
                 }
                 object::Object::Float(right_value) => {
                     return Evaluator::eval_float_infix_expression(
                         operator,
-                        left_value as f64,
+                        *left_value as f64,
                         right_value,
                     )
                 }
                 _ => return Some(err),
             },
-            object::Object::String(left_value) => match right {
+            object::Object::String(left_value) => match &*right {
                 object::Object::String(right_value) => {
                     return Evaluator::eval_string_infix_expression(
                         operator,
-                        left_value,
-                        right_value,
+                        left_value.clone(),
+                        right_value.clone(),
                     )
                 }
                 _ => return Some(err),
             },
-            object::Object::Boolean(left_value) => match right {
+            object::Object::Boolean(left_value) => match *right {
                 object::Object::Boolean(right_value) => match &*operator {
-                    "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
-                    "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
+                    "==" => return Some(Evaluator::eval_boolean(*left_value == right_value)),
+                    "!=" => return Some(Evaluator::eval_boolean(*left_value != right_value)),
                     _ => {
-                        return Some(object::Object::Error(format!(
+                        return Some(object::Object::new_error(format!(
                             "unknown operator: {} {} {}",
                             left, operator, right
                         )))
@@ -377,7 +392,7 @@ impl Evaluator {
                 _ => return Some(err),
             },
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "type mismatch: {} {} {}",
                     &left, operator, &right
                 )))
@@ -385,32 +400,32 @@ impl Evaluator {
         }
     }
 
-    fn eval_float(left_value: i64, right_value: i64) -> object::Object {
+    fn eval_float(left_value: i64, right_value: i64) -> Rc<object::Object> {
         let mut under_dot = right_value as f64;
         while under_dot >= 1.0 {
             under_dot = under_dot / 10.0;
         }
 
-        return object::Object::Float(left_value as f64 + under_dot);
+        return Rc::new(object::Object::Float(left_value as f64 + under_dot));
     }
 
     fn eval_integer_infix_expression(
         operator: String,
         left_value: i64,
         right_value: i64,
-    ) -> Option<object::Object> {
+    ) -> Option<Rc<object::Object>> {
         match &*operator {
-            "+" => return Some(object::Object::Integer(left_value + right_value)),
-            "-" => return Some(object::Object::Integer(left_value - right_value)),
-            "*" => return Some(object::Object::Integer(left_value * right_value)),
-            "/" => return Some(object::Object::Integer(left_value / right_value)),
+            "+" => return Some(Rc::new(object::Object::Integer(left_value + right_value))),
+            "-" => return Some(Rc::new(object::Object::Integer(left_value - right_value))),
+            "*" => return Some(Rc::new(object::Object::Integer(left_value * right_value))),
+            "/" => return Some(Rc::new(object::Object::Integer(left_value / right_value))),
             "." => return Some(Evaluator::eval_float(left_value, right_value)),
             "<" => return Some(Evaluator::eval_boolean(left_value < right_value)),
             ">" => return Some(Evaluator::eval_boolean(left_value > right_value)),
             "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
             "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "unknown operator: {} {} {}",
                     left_value, operator, right_value
                 )))
@@ -422,18 +437,18 @@ impl Evaluator {
         operator: String,
         left_value: f64,
         right_value: f64,
-    ) -> Option<object::Object> {
+    ) -> Option<Rc<object::Object>> {
         match &*operator {
-            "+" => return Some(object::Object::Float(left_value + right_value)),
-            "-" => return Some(object::Object::Float(left_value - right_value)),
-            "*" => return Some(object::Object::Float(left_value * right_value)),
-            "/" => return Some(object::Object::Float(left_value / right_value)),
+            "+" => return Some(Rc::new(object::Object::Float(left_value + right_value))),
+            "-" => return Some(Rc::new(object::Object::Float(left_value - right_value))),
+            "*" => return Some(Rc::new(object::Object::Float(left_value * right_value))),
+            "/" => return Some(Rc::new(object::Object::Float(left_value / right_value))),
             "<" => return Some(Evaluator::eval_boolean(left_value < right_value)),
             ">" => return Some(Evaluator::eval_boolean(left_value > right_value)),
             "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
             "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "unknown operator: {} {} {}",
                     left_value, operator, right_value
                 )))
@@ -445,18 +460,18 @@ impl Evaluator {
         operator: String,
         left_value: String,
         right_value: String,
-    ) -> Option<object::Object> {
+    ) -> Option<Rc<object::Object>> {
         match &*operator {
             "+" => {
-                return Some(object::Object::String(format!(
+                return Some(Rc::new(object::Object::String(format!(
                     "{}{}",
                     left_value, right_value
-                )))
+                ))))
             }
             "==" => return Some(Evaluator::eval_boolean(left_value == right_value)),
             "!=" => return Some(Evaluator::eval_boolean(left_value != right_value)),
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "unknown operator: STRING {} STRING",
                     operator
                 )))
@@ -464,26 +479,30 @@ impl Evaluator {
         }
     }
 
-    fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
-        match right {
+    fn eval_bang_operator_expression(right: Rc<object::Object>) -> Option<Rc<object::Object>> {
+        match *right {
             object::Object::Boolean(value) => return Some(Evaluator::eval_boolean(!value)),
-            object::Object::Null => return Some(object::TRUE),
-            _ => Some(object::FALSE),
+            object::Object::Null => return Some(Rc::new(object::TRUE)),
+            _ => Some(Rc::new(object::FALSE)),
         }
     }
 
-    fn eval_boolean(value: bool) -> object::Object {
+    fn eval_boolean(value: bool) -> Rc<object::Object> {
         if value {
-            return object::TRUE;
+            return Rc::new(object::TRUE);
         } else {
-            return object::FALSE;
+            return Rc::new(object::FALSE);
         }
     }
-    fn eval_minus_prefix_operator_expression(right: object::Object) -> Option<object::Object> {
-        match right {
-            object::Object::Integer(value) => return Some(object::Object::Integer(-value)),
+    fn eval_minus_prefix_operator_expression(
+        right: Rc<object::Object>,
+    ) -> Option<Rc<object::Object>> {
+        match *right {
+            object::Object::Integer(value) => {
+                return Some(Rc::new(object::Object::Integer(-value)))
+            }
             _ => {
-                return Some(object::Object::Error(format!(
+                return Some(object::Object::new_error(format!(
                     "unknown operator: -{}",
                     right
                 )))
@@ -495,7 +514,7 @@ impl Evaluator {
         condition: Box<ast::Expression>,
         consequence: Box<ast::Statement>,
         alternative: Option<Box<ast::Statement>>,
-    ) -> Option<object::Object> {
+    ) -> Option<Rc<object::Object>> {
         if let Some(evaluated_condition) = self.eval_expression(*condition) {
             if Evaluator::is_error(&evaluated_condition) {
                 return Some(evaluated_condition);
@@ -505,7 +524,7 @@ impl Evaluator {
             } else if let Some(alt) = alternative {
                 return self.eval_statement(*alt);
             } else {
-                return Some(object::NULL);
+                return Some(Rc::new(object::NULL));
             }
         } else {
             return None;
@@ -516,8 +535,8 @@ impl Evaluator {
         &mut self,
         condition: Box<ast::Expression>,
         consequence: Box<ast::Statement>,
-    ) -> Option<object::Object> {
-        let mut object = object::Object::Null;
+    ) -> Option<Rc<object::Object>> {
+        let mut object = Rc::new(object::NULL);
         loop {
             if let Some(evaluated_condition) = self.eval_expression(*condition.clone()) {
                 if Evaluator::is_error(&evaluated_condition) {
@@ -528,10 +547,10 @@ impl Evaluator {
                 }
 
                 object = match self.eval_statement(*consequence.clone()) {
-                    Some(object::Object::Return(value)) => {
-                        return Some(object::Object::Return(value));
-                    }
-                    Some(obj) => obj,
+                    Some(obj) => match &*obj {
+                        object::Object::Return(_) => return Some(Rc::clone(&obj)),
+                        _ => obj,
+                    },
                     _ => {
                         return None;
                     }
@@ -548,27 +567,27 @@ impl Evaluator {
         return Some(object);
     }
 
-    fn eval_identifier(&mut self, ident: String) -> Option<object::Object> {
+    fn eval_identifier(&mut self, ident: String) -> Option<Rc<object::Object>> {
         if let Some(value) = self.env.borrow_mut().get((&ident).to_string()) {
             return Some(value);
         }
         if let Some(value) = self.builtin.get(&ident) {
-            return Some(value.clone());
+            return Some(Rc::clone(value));
         }
-        return Some(object::Object::Error(format!(
+        return Some(object::Object::new_error(format!(
             "identifier not found: {}",
             ident
         )));
     }
-    fn is_truthy(obj: object::Object) -> bool {
-        match obj {
+    fn is_truthy(obj: Rc<object::Object>) -> bool {
+        match *obj {
             object::Object::Null => return false,
             object::Object::Boolean(value) => return value,
             _ => return true,
         }
     }
-    fn is_error(obj: &object::Object) -> bool {
-        match obj {
+    fn is_error(obj: &Rc<object::Object>) -> bool {
+        match **obj {
             object::Object::Error(_) => return true,
             _ => return false,
         }
@@ -604,7 +623,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -619,8 +638,8 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            if let object::Object::String(value) = evaluated {
-                assert_eq!(value, t.1.to_string());
+            if let object::Object::String(value) = &*evaluated {
+                assert_eq!(*value, t.1.to_string());
             } else {
                 panic!("not string");
             }
@@ -658,7 +677,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_boolean_object(evaluated, t.1);
+            test_boolean_object(&evaluated, t.1);
         }
     }
 
@@ -677,7 +696,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_boolean_object(evaluated, t.1);
+            test_boolean_object(&evaluated, t.1);
         }
     }
 
@@ -699,9 +718,9 @@ mod evaluator_tests {
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
             if let Some(integ) = t.1 {
-                test_integer_object(evaluated, integ);
+                test_integer_object(&evaluated, integ);
             } else {
-                test_null_object(evaluated);
+                test_null_object(&*evaluated);
             }
         }
     }
@@ -718,9 +737,9 @@ mod evaluator_tests {
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
             if let Some(integ) = t.1 {
-                test_integer_object(evaluated, integ);
+                test_integer_object(&evaluated, integ);
             } else {
-                test_null_object(evaluated);
+                test_null_object(&*evaluated);
             }
         }
     }
@@ -744,7 +763,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -775,7 +794,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            match evaluated {
+            match &*evaluated {
                 object::Object::Error(value) => {
                     assert_eq!(value, t.1);
                 }
@@ -796,7 +815,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            match evaluated {
+            match &*evaluated {
                 object::Object::Function {
                     parameters,
                     body,
@@ -829,7 +848,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -838,14 +857,14 @@ mod evaluator_tests {
         let input = "[1, 2 * 2, 3 + 3]".to_string();
 
         let evaluated = test_eval(input);
-        if let object::Object::Array(elements) = evaluated {
+        if let object::Object::Array(elements) = &*evaluated {
             if elements.len() != 3 {
                 panic!("array has wrong num of elements. got={}", elements.len());
             }
 
-            test_integer_object(elements[0].clone(), 1);
-            test_integer_object(elements[1].clone(), 4);
-            test_integer_object(elements[2].clone(), 6);
+            test_integer_object(&*elements[0], 1);
+            test_integer_object(&*elements[1], 4);
+            test_integer_object(&*elements[2], 6);
         }
     }
 
@@ -861,7 +880,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -882,7 +901,7 @@ mod evaluator_tests {
 
         for t in tests {
             let evaluated = test_eval(t.0.to_string());
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -917,10 +936,10 @@ mod evaluator_tests {
         ];
 
         let evaluated = test_eval(input.to_string());
-        if let object::Object::Hash(hash) = evaluated {
+        if let object::Object::Hash(hash) = &*evaluated {
             for (i, key) in keys.iter().enumerate() {
-                if let Some(value) = hash.get(&key) {
-                    if value != &values[i] {
+                if let Some(value) = hash.get(&Rc::new(key.clone())) {
+                    if **value != values[i] {
                         panic!();
                     }
                 } else {
@@ -932,7 +951,53 @@ mod evaluator_tests {
         }
     }
 
-    fn test_eval(input: String) -> object::Object {
+    #[test]
+    fn test_long_function() {
+        let input = "let two = \"two\";
+        {
+            \"one\": 10 - 9,
+            two: 1 + 1,
+            \"thr\" + \"ee\": 6 / 2,
+            4: 4,
+            true: 5,
+            false: 6,
+        }";
+
+        let keys = vec![
+            object::Object::String(String::from("one")),
+            object::Object::String(String::from("two")),
+            object::Object::String(String::from("three")),
+            object::Object::Integer(4),
+            object::Object::Boolean(true),
+            object::Object::Boolean(false),
+        ];
+
+        let values = vec![
+            object::Object::Integer(1),
+            object::Object::Integer(2),
+            object::Object::Integer(3),
+            object::Object::Integer(4),
+            object::Object::Integer(5),
+            object::Object::Integer(6),
+        ];
+
+        let evaluated = test_eval(input.to_string());
+        if let object::Object::Hash(hash) = &*evaluated {
+            for (i, key) in keys.iter().enumerate() {
+                if let Some(value) = hash.get(&Rc::new(key.clone())) {
+                    if **value != values[i] {
+                        panic!();
+                    }
+                } else {
+                    panic!();
+                }
+            }
+        } else {
+            panic!();
+        }
+    }
+
+    fn test_eval(input: String) -> Rc<object::Object> {
         let mut evaluator = Evaluator::new();
         let l = lexer::Lexer::new(&input);
         let mut p = parser::Parser::new(l);
@@ -947,15 +1012,15 @@ mod evaluator_tests {
         }
 
         match evaluator.eval_program(program) {
-            Some(obj) => return obj,
+            Some(obj) => return Rc::clone(&obj),
             None => panic!(),
         }
     }
 
-    fn test_integer_object(obj: object::Object, expected: i64) -> bool {
+    fn test_integer_object(obj: &object::Object, expected: i64) -> bool {
         match obj {
             object::Object::Integer(value) => {
-                if value != expected {
+                if *value != expected {
                     panic!("{} is not match to {}", value, expected);
                 }
                 return true;
@@ -964,10 +1029,10 @@ mod evaluator_tests {
         }
     }
 
-    fn test_boolean_object(obj: object::Object, expected: bool) -> bool {
+    fn test_boolean_object(obj: &object::Object, expected: bool) -> bool {
         match obj {
             object::Object::Boolean(value) => {
-                if value != expected {
+                if *value != expected {
                     panic!("{} is not match to {}", value, expected);
                 }
                 return true;
@@ -976,7 +1041,7 @@ mod evaluator_tests {
         }
     }
 
-    fn test_null_object(obj: object::Object) -> bool {
+    fn test_null_object(obj: &object::Object) -> bool {
         if let object::Object::Null = obj {
             return false;
         }

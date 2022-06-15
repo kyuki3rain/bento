@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::{ast, lexer, token};
 
 #[allow(dead_code)]
@@ -37,8 +39,8 @@ pub fn token_type_to_precedence(t: &token::TokenType) -> Precedence {
 #[allow(dead_code)]
 pub struct Parser {
     l: lexer::Lexer,
-    cur_token: token::Token,
-    peek_token: token::Token,
+    cur_token: Rc<token::Token>,
+    peek_token: Rc<token::Token>,
     pub errors: Vec<String>,
 }
 
@@ -47,14 +49,14 @@ impl Parser {
     pub fn new(l: lexer::Lexer) -> Parser {
         let mut p = Parser {
             l: l,
-            cur_token: token::Token {
+            cur_token: Rc::new(token::Token {
                 token_type: token::TokenType::ILLEGAL,
                 literal: "".to_string(),
-            },
-            peek_token: token::Token {
+            }),
+            peek_token: Rc::new(token::Token {
                 token_type: token::TokenType::ILLEGAL,
                 literal: "".to_string(),
-            },
+            }),
             errors: Vec::new(),
         };
 
@@ -72,8 +74,8 @@ impl Parser {
     }
 
     fn next_token(&mut self) {
-        self.cur_token = self.peek_token.clone();
-        self.peek_token = self.l.next_token();
+        self.cur_token = Rc::clone(&self.peek_token);
+        self.peek_token = Rc::new(self.l.next_token());
     }
 
     pub fn parse_program(&mut self) -> ast::Program {
@@ -173,22 +175,19 @@ impl Parser {
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<ast::Expression> {
         if let Some(left_exp) = self.parse_prefix_expression_fns() {
-            let mut left = left_exp.clone();
+            let mut left = Box::new(left_exp);
             while !self.peek_token_is(&token::TokenType::SEMICOLON)
                 && precedence < self.peek_precedence()
             {
-                let t = self.peek_token.token_type.clone();
                 self.next_token();
-                if let Some(left_exp_new) =
-                    self.parse_infix_expression_fns(t, Box::new(left.clone()))
-                {
-                    left = left_exp_new;
+                if let Some(left_exp_new) = self.parse_infix_expression_fns(left.clone()) {
+                    left = Box::new(left_exp_new);
                 } else {
-                    return Some(left);
+                    return Some(*left);
                 }
             }
 
-            return Some(left);
+            return Some(*left);
         } else {
             self.no_prefix_parse_fn_error();
             return None;
@@ -216,10 +215,9 @@ impl Parser {
 
     fn parse_infix_expression_fns(
         &mut self,
-        t: token::TokenType,
         left_exp: Box<ast::Expression>,
     ) -> Option<ast::Expression> {
-        match t {
+        match self.cur_token.token_type {
             token::TokenType::PLUS => return self.parse_infix_expression(left_exp),
             token::TokenType::DOT => return self.parse_infix_expression(left_exp),
             token::TokenType::MINUS => return self.parse_infix_expression(left_exp),

@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 #[macro_use]
 #[cfg(test)]
 extern crate counted_array;

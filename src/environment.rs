@@ -5,13 +5,17 @@ use std::rc::Rc;
 
 #[derive(Clone, PartialEq)]
 pub struct Environment {
-    store: HashMap<String, object::Object>,
+    store: HashMap<String, Rc<object::Object>>,
     outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
     pub fn new() -> Environment {
-        let s = HashMap::new();
+        let mut s = HashMap::new();
+        s.insert("null".to_string(), Rc::new(object::NULL));
+        s.insert("true".to_string(), Rc::new(object::TRUE));
+        s.insert("false".to_string(), Rc::new(object::FALSE));
+        s.insert("exit".to_string(), Rc::new(object::EXIT));
         return Environment {
             store: s,
             outer: None,
@@ -25,17 +29,17 @@ impl Environment {
         };
     }
 
-    pub fn get(&self, name: String) -> Option<object::Object> {
+    pub fn get(&self, name: String) -> Option<Rc<object::Object>> {
         match self.store.get(&name) {
-            Some(value) => return Some(value.clone()),
+            Some(value) => return Some(Rc::clone(value)),
             None => match &self.outer {
                 Some(out_env) => return out_env.borrow_mut().get(name),
                 None => return None,
             },
         }
     }
-    pub fn set(&mut self, name: String, val: &object::Object) {
-        self.store.insert(name, val.clone());
+    pub fn set(&mut self, name: String, val: Rc<object::Object>) {
+        self.store.insert(name, val);
     }
     pub fn contains_key(&mut self, name: &str) -> bool {
         return self.store.contains_key(name);
