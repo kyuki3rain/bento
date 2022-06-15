@@ -7,40 +7,40 @@ pub fn new_builtins() -> HashMap<String, Object> {
     let mut builtins = HashMap::new();
     builtins.insert(
         String::from("len"),
-        Object::Builtin(BuiltinFunc(1, bento_len)),
+        Object::Builtin(BuiltinFunc(1, strainer_len)),
     );
     builtins.insert(
         String::from("first"),
-        Object::Builtin(BuiltinFunc(2, bento_first)),
+        Object::Builtin(BuiltinFunc(2, strainer_first)),
     );
     builtins.insert(
         String::from("last"),
-        Object::Builtin(BuiltinFunc(3, bento_last)),
+        Object::Builtin(BuiltinFunc(3, strainer_last)),
     );
     builtins.insert(
         String::from("rest"),
-        Object::Builtin(BuiltinFunc(4, bento_rest)),
+        Object::Builtin(BuiltinFunc(4, strainer_rest)),
     );
     builtins.insert(
         String::from("push"),
-        Object::Builtin(BuiltinFunc(5, bento_push)),
+        Object::Builtin(BuiltinFunc(5, strainer_push)),
     );
     builtins.insert(
         String::from("import"),
-        Object::Builtin(BuiltinFunc(6, bento_import)),
+        Object::Builtin(BuiltinFunc(6, strainer_import)),
     );
     builtins.insert(
         String::from("exit"),
-        Object::Builtin(BuiltinFunc(7, bento_exit)),
+        Object::Builtin(BuiltinFunc(7, strainer_exit)),
     );
     builtins.insert(
         String::from("puts"),
-        Object::Builtin(BuiltinFunc(8, bento_puts)),
+        Object::Builtin(BuiltinFunc(8, strainer_puts)),
     );
     builtins
 }
 
-fn bento_exit(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_exit(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     if args.len() > 1 {
         return Object::Error(format!(
             "wrong number of arguments. got={}, want=1",
@@ -60,7 +60,7 @@ fn bento_exit(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_import(args: Vec<Object>, eval: &mut evaluator::Evaluator) -> Object {
+fn strainer_import(args: Vec<Object>, eval: &mut evaluator::Evaluator) -> Object {
     if args.len() != 1 {
         return Object::Error(format!(
             "wrong number of arguments. got={}, want=1",
@@ -110,7 +110,7 @@ fn bento_import(args: Vec<Object>, eval: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_len(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_len(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     if args.len() != 1 {
         return Object::Error(format!(
             "wrong number of arguments. got={}, want=1",
@@ -124,7 +124,7 @@ fn bento_len(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_first(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_first(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     match &args[0] {
         Object::Array(o) => {
             if let Some(ao) = o.first() {
@@ -137,7 +137,7 @@ fn bento_first(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_last(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_last(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     match &args[0] {
         Object::Array(o) => {
             if let Some(ao) = o.last() {
@@ -150,7 +150,7 @@ fn bento_last(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_rest(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_rest(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     match &args[0] {
         Object::Array(o) => {
             if o.len() > 0 {
@@ -163,7 +163,7 @@ fn bento_rest(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_push(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_push(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     match &args[0] {
         Object::Array(o) => {
             let mut arr = o.clone();
@@ -174,7 +174,7 @@ fn bento_push(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     }
 }
 
-fn bento_puts(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
+fn strainer_puts(args: Vec<Object>, _: &mut evaluator::Evaluator) -> Object {
     for arg in args {
         print!("{}\r\n", arg.string());
     }

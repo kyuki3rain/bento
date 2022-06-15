@@ -1,9 +1,8 @@
-extern crate termion;
-
 use super::{evaluator, lexer, object, parser};
 use std::cell::RefCell;
 use std::cmp;
 use std::io::{stdin, stdout, Write};
+use termion;
 use termion::cursor::DetectCursorPos;
 use termion::event::{Event, Key};
 use termion::input::TermRead;

@@ -37,7 +37,7 @@ pub enum Object {
 }
 
 impl fmt::Display for Object {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Object::Integer(_) => return write!(f, "INTEGER"),
             Object::Float(_) => return write!(f, "FLOAT"),
