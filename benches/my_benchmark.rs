@@ -4,7 +4,7 @@ use mylib::evaluator::Evaluator;
 use mylib::{lexer, parser};
 
 fn bm1(c: &mut Criterion) {
-    c.bench_function("My Answer", |b| {
+    c.bench_function("v0.1.5", |b| {
         b.iter(|| {
             let input = "let a = 10;
             let b = 11;
